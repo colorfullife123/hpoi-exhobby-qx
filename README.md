@@ -14,34 +14,35 @@
 
 适用范围是触发 `/api/hobby/album` 的手办／模型词条；不包含人物、厂商等其他页面。
 
-## 安装
+## 安装：远程订阅（推荐）
 
-### 1. 保存脚本
+### 1. 添加远程重写
 
-将仓库根目录的 `hpoi-exhobby.js` 保存为 Quantumult X 可识别的本地脚本，文件名保持一致。已有 v2.3／v3.0 的用户可以覆盖同名文件。
+订阅地址：[hpoi-exhobby.snippet](https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.snippet)。
 
-确认文件内容以 `// Hpoi + EXHOBBY native album v3.0` 开头。如果下载到的是 `Unsupported Media Type`、网页 HTML 或 Markdown 代码围栏，请重新获取脚本原文，不能将这些内容当作 JavaScript。
-
-### 2. 添加重写与 MITM 域名
-
-将下面四条规则加入现有配置的 `[rewrite_local]` 段。完整片段也可见 [`hpoi-exhobby.local.conf`](hpoi-exhobby.local.conf)。
+在 Quantumult X 现有配置的 `[rewrite_remote]` 段中添加下面这一行：
 
 ```ini
-^https://www\.exhobby\.net/picture(?:\?|/\d+(?:\?|$)) url script-response-body hpoi-exhobby.js
-^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-request-body hpoi-exhobby.js
-^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-response-body hpoi-exhobby.js
-^https://rfx\.hpoi\.net/[^?]*__exhobby__/([^?]+)(?:\?.*)?$ url 302 https://res.e39x.com/pic/n/$1
+https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.snippet, tag=HPOI_EXHOBBY, enabled=true
 ```
 
-在现有 `[mitm]` 的 `hostname` 中追加：
+保存并更新远程资源，确认资源成功加载四条重写规则。该订阅会引用仓库里的 JavaScript，无需额外保存同名本地脚本。
+
+如果通过圈叉的重写资源界面添加，资源地址填写上面的订阅链接。配置行用于 `[rewrite_remote]`，不要把仓库首页链接或 JS 文件链接当作重写订阅地址。
+
+### 2. 保持重写与 MITM 开启
+
+**MITM 总开关、已安装并信任的证书都需要保留。** 本项目依赖 MITM 读取和改写 Hpoi、EXHOBBY 的 HTTPS 请求和响应。
+
+以下三个域名需要在 MITM 中生效：
 
 ```text
 www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 ```
 
-保留已有的其他域名，并确保 Quantumult X 的重写与 MITM 已启用、证书已正确安装并信任。
+远程订阅已包含这三个 `hostname`。原来手动添加的相同域名可以保留；若域名尚未生效，将它们追加到现有 `[mitm]` 的 `hostname` 列表，保留其他项目需要的域名。
 
-停用旧版 Hpoi 预览图重写、`hpoi-diag.js` 和 `exhobby-page-diag.js` 的诊断规则，避免多个脚本处理同一响应。
+**从本地规则切换过来时，只停用本项目旧的四条本地重写，MITM 保持开启。** 同时停用旧版 Hpoi 预览图重写、`hpoi-diag.js` 和 `exhobby-page-diag.js` 诊断规则，避免同一响应被重复处理。
 
 ### 3. 首次准备原生相册模板
 
@@ -71,21 +72,49 @@ www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 
 首次进入时脚本会获取完整图库的**图片路径和元数据**，图片文件在浏览时按需请求。图片较多或网络较慢时，可能需要返回词条刷新，继续获取尚未完成的分页。
 
-## GitHub 上传
+## 从旧版升级与日常更新
 
-建议仓库名：`hpoi-exhobby-qx`。选择公开或私有仓库后，将项目文件放在仓库根目录，使 `README.md` 和 `hpoi-exhobby.js` 能在首页文件列表中直接看到。
+已经使用本地 v2.3／v3.0 的用户，添加并成功加载远程订阅后，停用旧的四条本地重写即可。脚本继续使用原有存储命名空间，已保存的相册模板与仍有效的浏览器会话通常可以复用，无需主动清空数据。
 
-如果使用项目压缩包，请先解压，再上传里面的文件与 `tests` 文件夹；只上传 ZIP 不会生成脚本源文件地址。仓库已有本项目 README 时，无需在创建仓库时另建 README。
+仓库脚本更新后，在圈叉中更新远程资源，并查看运行日志里的版本号确认实际加载的版本。GitHub 文件修改不等于设备已经更新，远程脚本缓存也可能需要刷新。
 
-GitHub 官方说明：[创建仓库](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-new-repository)、[通过网页上传文件](https://docs.github.com/en/repositories/working-with-files/managing-files/adding-a-file-to-a-repository)。
+只有日志提示模板缺失或会话失效时，才重新执行相应的初始化步骤。浏览器会话最多复用 24 小时，网站可能提前使其失效。
 
-本包提供的是**本地脚本规则**，可以独立于仓库地址使用。仓库地址确定后，可另行配置指向该仓库脚本原文的远程规则。
+## 本地安装（备选）
+
+如果需要使用本地文件，将 [`hpoi-exhobby.js`](hpoi-exhobby.js) 保存为 Quantumult X 可识别的本地脚本，并将 [`hpoi-exhobby.local.conf`](hpoi-exhobby.local.conf) 中的四条规则合并到现有 `[rewrite_local]` 段，同时保留上述 MITM 设置。
+
+本地配置文件是配置片段，不要用它覆盖整份圈叉配置。本地和远程两种安装方式选择一种，避免两套规则同时执行。
+
+脚本原文地址：[hpoi-exhobby.js](https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js)。正常脚本以 `// Hpoi + EXHOBBY native album v3.0` 开头；`Unsupported Media Type`、HTML 错误页和 Markdown 代码围栏都不能作为 JavaScript 保存。
+
+## 仓库文件与维护
+
+当前订阅使用 `main` 分支。GitHub 文件列表上方的 `main` 下拉按钮表示当前分支；文件根目录是打开仓库后直接看到的第一层文件列表。
+
+| 路径 | 用途 |
+| --- | --- |
+| `README.md` | 安装、使用和排错说明 |
+| `hpoi-exhobby.js` | Quantumult X 主脚本 |
+| `hpoi-exhobby.snippet` | 远程重写订阅，引用主脚本并声明 MITM 域名 |
+| `hpoi-exhobby.local.conf` | 本地安装配置片段 |
+| `package.json` | 离线检查与测试命令 |
+| `tests/native-album.cjs` | 离线模拟测试 |
+
+上传压缩包时先解压，保持目录结构。主脚本和订阅文件应在仓库根目录；测试文件应放在 **`tests` 文件夹，末尾带 s**。
+
+如果测试文件误放在根目录，可在 GitHub 打开 `native-album.cjs`，点击编辑按钮，在顶部文件名输入框前加上 `tests/`，使最终路径为 `tests/native-album.cjs`，然后提交。文件夹会随提交创建。修改的是文件路径，测试代码沿用原内容。
+
+远程订阅使用无需登录的 Raw 地址。使用自己的 Fork 时，请同步修改 README 中的订阅地址，以及 `hpoi-exhobby.snippet` 内三个 JavaScript 地址的用户名、仓库名和分支；仅修改订阅链接仍会引用原仓库的脚本。
+
+GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/working-with-files/managing-files/moving-a-file-to-a-new-location)、[查看分支](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-branches-in-your-repository/viewing-branches-in-your-repository)。
 
 ## 常见日志
 
 | 日志或现象 | 含义与处理 |
 | --- | --- |
-| `script not found` | Quantumult X 找不到本地脚本，检查保存位置及文件名。 |
+| 订阅或脚本链接返回 `404` | 检查仓库是否允许公开访问、分支是否为 `main`、文件名是否正确，以及文件是否误放进了子文件夹。 |
+| `script not found` | 本地模式检查保存位置和文件名；远程模式检查脚本 Raw 地址及资源下载状态。 |
 | `Unexpected identifier 'Media'` | 文件可能保存成了下载错误页，重新下载脚本原文。 |
 | `initialization: open one normal Hpoi album` | 打开一个普通 Hpoi 相册，让详情与图片列表都加载。 |
 | `open the EXHOBBY gallery in Safari...` | 尚无有效浏览器会话，按首次会话步骤操作。 |
