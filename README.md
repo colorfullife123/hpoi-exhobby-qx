@@ -158,4 +158,12 @@ npm test
 
 接口调用方式参考 [Exhobby For Hpoi 用户脚本](https://greasyfork.org/zh-CN/scripts/382359-exhobby-for-hpoi/code)。Quantumult X 的脚本与配置接口可查阅[官方示例](https://github.com/crossutility/Quantumult-X)。
 
-此项目是第三方适配，不代表 Hpoi、EXHOBBY 或 Quantumult X 官方。尚未为本项目指定开源许可证。
+## 许可证与免责声明
+
+本仓库中由本项目作者原创的代码和文档采用 [MIT License](LICENSE) 发布。
+
+本项目是第三方适配项目，与 Hpoi、EXHOBBY、Quantumult X 及其开发者、运营方不存在官方关联、授权或背书关系。
+
+Hpoi、EXHOBBY、Quantumult X 的名称、商标、接口、网站内容及 EXHOBBY 图库中的图片等第三方内容，其相关权利归各自权利人所有。MIT License 仅适用于本仓库中由本项目作者原创并有权许可的代码与文档，不授予任何第三方内容、商标或素材的使用权。
+
+使用本项目时，请自行遵守相关服务的使用条款以及所在地适用的法律法规。
