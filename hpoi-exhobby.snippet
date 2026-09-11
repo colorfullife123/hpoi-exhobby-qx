@@ -1,0 +1,11 @@
+# Hpoi EXHOBBY v3.0 - Quantumult X remote rewrite
+# Assumes branch main and hpoi-exhobby.js at the repository root.
+# Confirm that the script URL is publicly accessible before enabling.
+# Disable the previous local Hpoi EXHOBBY rules when enabling this resource.
+
+hostname = www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
+
+^https://www\.exhobby\.net/picture(?:\?|/\d+(?:\?|$)) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js
+^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-request-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js
+^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js
+^https://rfx\.hpoi\.net/[^?]*__exhobby__/([^?]+)(?:\?.*)?$ url 302 https://res.e39x.com/pic/n/$1
