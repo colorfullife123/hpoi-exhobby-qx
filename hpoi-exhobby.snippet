@@ -1,4 +1,4 @@
-# Hpoi EXHOBBY v3.1 - Quantumult X remote rewrite
+# Hpoi EXHOBBY v3.2 - Quantumult X remote rewrite
 # Assumes branch main and hpoi-exhobby.js at the repository root.
 # Confirm that the script URL is publicly accessible before enabling.
 # Disable the previous local Hpoi EXHOBBY rules when enabling this resource.
@@ -8,4 +8,5 @@ hostname = www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 ^https://www\.exhobby\.net/picture(?:\?|/\d+(?:\?|$)) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js
 ^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-request-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js
 ^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js
+^https://rfx\.hpoi\.net/[^?]*__exhobby__/cover-v3\.2\.png[^?]*(?:\?.*)?$ url 302 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/assets/exhobby-cover-v3.2.png
 ^https://rfx\.hpoi\.net/[^?]*__exhobby__/([^?]+)(?:\?.*)?$ url 302 https://res.e39x.com/pic/n/$1

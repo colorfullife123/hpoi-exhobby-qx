@@ -2,13 +2,14 @@
 
 在 Hpoi iOS App 的手办词条相册列表中添加「EXHOBBY 相册」入口，点击后通过 Hpoi 原生相册查看图片。
 
-当前版本：**v3.1**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。外层详情页只添加相册入口，不插入预览图片网格。
+当前版本：**v3.2**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。外层详情页只添加相册入口，不插入预览图片网格。EXHOBBY 相册列表使用单独设计的标识封面，进入相册后仍显示各词条自己的图库图片。
 
 ## 功能
 
 - 从当前 Hpoi 词条识别 EXHOBBY 图库，无需逐个填写条目 ID。
 - 获取图库第一页及后续分页，收到空数组后才标记抓取完成，不把六张预览图当作完整图库。
 - 在原有相册列表中添加入口，保留 Hpoi 自带相册。
+- EXHOBBY 相册的预览封面明确写有「EXHOBBY」，不同词条使用同一张标识封面；图库内图片不添加水印。
 - 支持原生相册分页、不同词条之间的缓存隔离和中断后继续获取。
 - 沿用 v2.3 已保存的浏览器会话和原生相册模板。
 - 只有在缺少会话或网站明确返回年龄／人机验证页面时通知，45 分钟内不重复提醒；已有 Cookie 仍可使用时自动复用。
@@ -27,7 +28,7 @@
 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.snippet, tag=HPOI_EXHOBBY, enabled=true
 ```
 
-保存并更新远程资源，确认资源成功加载四条重写规则。该订阅会引用仓库里的 JavaScript，无需额外保存同名本地脚本。
+保存并更新远程资源，确认资源成功加载五条重写规则。该订阅会引用仓库里的 JavaScript 和 `assets/exhobby-cover-v3.2.png`，无需额外保存同名本地脚本。
 
 如果通过圈叉的重写资源界面添加，资源地址填写上面的订阅链接。配置行用于 `[rewrite_remote]`，不要把仓库首页链接或 JS 文件链接当作重写订阅地址。
 
@@ -43,7 +44,7 @@ www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 
 远程订阅已包含这三个 `hostname`。原来手动添加的相同域名可以保留；若域名尚未生效，将它们追加到现有 `[mitm]` 的 `hostname` 列表，保留其他项目需要的域名。
 
-**从本地规则切换过来时，只停用本项目旧的四条本地重写，MITM 保持开启。** 同时停用旧版 Hpoi 预览图重写、`hpoi-diag.js` 和 `exhobby-page-diag.js` 诊断规则，避免同一响应被重复处理。
+**从本地规则切换过来时，只停用本项目旧的本地重写，MITM 保持开启。** 同时停用旧版 Hpoi 预览图重写、`hpoi-diag.js` 和 `exhobby-page-diag.js` 诊断规则，避免同一响应被重复处理。
 
 ### 3. 首次准备原生相册模板
 
@@ -62,7 +63,7 @@ www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 看到以下日志后返回 Hpoi：
 
 ```text
-[HPOI_EXHOBBY] v3.1 browser session saved; reopen Hpoi
+[HPOI_EXHOBBY] v3.2 browser session saved; reopen Hpoi
 ```
 
 这是保存当前设备正常访问图库所使用的浏览器会话，不需要手动复制 Cookie，也不需要对每个词条分别操作。会话失效后重复此步骤即可。
@@ -89,7 +90,9 @@ www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 
 ## 从旧版升级与日常更新
 
-已经使用本地 v2.3／v3.0 的用户，添加并成功加载远程订阅后，停用旧的四条本地重写即可。脚本继续使用原有存储命名空间，已保存的相册模板与仍有效的浏览器会话通常可以复用，无需主动清空数据。
+已经使用本地 v2.3／v3.0／v3.1 的用户，添加并成功加载远程订阅后，停用旧的本地重写即可。脚本继续使用原有存储命名空间，已保存的相册模板与仍有效的浏览器会话通常可以复用，无需主动清空数据。
+
+从远程 v3.1 升级时，先把主脚本、两份重写配置以及 `assets/exhobby-cover-v3.2.png` 上传到 GitHub，再更新圈叉的远程重写资源。新增的封面规则要排在 EXHOBBY 图片通用跳转规则之前。封面资产的 Raw 链接应能直接打开图片；若看不到新版封面，请检查五条规则是否都已加载及图片资源是否公开可访问。
 
 仓库脚本更新后，在圈叉中更新远程资源，并查看运行日志里的版本号确认实际加载的版本。GitHub 文件修改不等于设备已经更新，远程脚本缓存也可能需要刷新。
 
@@ -97,11 +100,11 @@ www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 
 ## 本地安装（备选）
 
-如果需要使用本地文件，将 [`hpoi-exhobby.js`](hpoi-exhobby.js) 保存为 Quantumult X 可识别的本地脚本，并将 [`hpoi-exhobby.local.conf`](hpoi-exhobby.local.conf) 中的四条规则合并到现有 `[rewrite_local]` 段，同时保留上述 MITM 设置。
+如果需要使用本地文件，将 [`hpoi-exhobby.js`](hpoi-exhobby.js) 保存为 Quantumult X 可识别的本地脚本，并将 [`hpoi-exhobby.local.conf`](hpoi-exhobby.local.conf) 中的五条规则合并到现有 `[rewrite_local]` 段，同时保留上述 MITM 设置。标识封面通过公开 Raw 链接加载，图片资产仍需上传到仓库。
 
 本地配置文件是配置片段，不要用它覆盖整份圈叉配置。本地和远程两种安装方式选择一种，避免两套规则同时执行。
 
-脚本原文地址：[hpoi-exhobby.js](https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js)。正常脚本以 `// Hpoi + EXHOBBY native album v3.1` 开头；`Unsupported Media Type`、HTML 错误页和 Markdown 代码围栏都不能作为 JavaScript 保存。
+脚本原文地址：[hpoi-exhobby.js](https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js)。正常脚本以 `// Hpoi + EXHOBBY native album v3.2` 开头；`Unsupported Media Type`、HTML 错误页和 Markdown 代码围栏都不能作为 JavaScript 保存。
 
 ## 仓库文件与维护
 
@@ -114,10 +117,11 @@ www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 | `bark-setup.example.js` | 可选的一次性 Bark 本地配置模板；不要上传含个人密钥的副本 |
 | `hpoi-exhobby.snippet` | 远程重写订阅，引用主脚本并声明 MITM 域名 |
 | `hpoi-exhobby.local.conf` | 本地安装配置片段 |
+| `assets/exhobby-cover-v3.2.png` | 本项目原创的 EXHOBBY 相册列表标识封面 |
 | `package.json` | 离线检查与测试命令 |
 | `tests/native-album.cjs` | 离线模拟测试 |
 
-上传压缩包时先解压，保持目录结构。主脚本和订阅文件应在仓库根目录；测试文件应放在 **`tests` 文件夹，末尾带 s**。
+上传压缩包时先解压，保持目录结构。主脚本和订阅文件应在仓库根目录；封面图应在 `assets` 文件夹，测试文件应放在 **`tests` 文件夹，末尾带 s**。
 
 如果测试文件误放在根目录，可在 GitHub 打开 `native-album.cjs`，点击编辑按钮，在顶部文件名输入框前加上 `tests/`，使最终路径为 `tests/native-album.cjs`，然后提交。文件夹会随提交创建。修改的是文件路径，测试代码沿用原内容。
 
@@ -137,6 +141,7 @@ GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/wor
 | `h1=年齡提醒！` | 返回的是网站年龄提醒页，在 Safari 完成网站要求后重新保存会话。 |
 | `EXHOBBY requires browser verification` | 网站明确返回了年龄／人机验证页面，点击 Bark 提醒中的网址并按网页提示操作。 |
 | `Bark delivery failed` | 推送服务器暂不可用，脚本已改发圈叉原生通知。 |
+| EXHOBBY 相册封面未显示 | 检查 `assets/exhobby-cover-v3.2.png` 是否上传，以及封面 302 规则是否排在通用图片 302 规则之前；远程资源更新后再刷新 Hpoi。 |
 | `empty/missing body; end NOT confirmed` | 本次响应缺失，不能当作图库结束；返回词条刷新重试。 |
 | `pagination timeout; refresh to resume` | 已保存本轮进度，返回词条刷新以继续抓取。 |
 | `page=N count=0` 后出现 `complete=true` | 收到了结束分页，完整元数据已经缓存。 |
@@ -146,6 +151,7 @@ GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/wor
 
 - 依赖 Hpoi 和 EXHOBBY 的现有接口、网页结构及图片域名；站点更新后可能需要调整。
 - 使用 Hpoi 原生相册样式，不修改 App 本身的页面布局。
+- 标识封面只用于 EXHOBBY 相册列表，不会在每张原始照片上添加角标；封面图片需经公开的 GitHub Raw 地址加载。
 - EXHOBBY 相册及图片使用本地合成 ID；当前只适配浏览，收藏、点赞、评论等操作未适配。
 - 完整图库元数据缓存有效期为 10 分钟，未完成抓取的进度有效期为 2 分钟。已有浏览器会话会复用至网站明确要求重新验证；提醒的冷却时间为 45 分钟。
 - 当前没有自动清理全部旧条目与图片 ID 映射的功能；有效期不等于所有历史缓存都会被物理删除。
@@ -153,7 +159,7 @@ GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/wor
 
 ## 数据与隐私
 
-仓库只包含脚本、规则、文档和使用假数据的测试，不附带实际抓包、账号凭据或图库图片。
+仓库只包含脚本、原创标识封面、规则、文档和使用假数据的测试，不附带实际抓包、账号凭据或图库图片。
 
 脚本通过 Quantumult X 本地偏好存储保存浏览器 Cookie、User-Agent、请求关联信息、原生模板、图库元数据和已访问图库的链接。EXHOBBY Cookie 仅用于 `www.exhobby.net` 的请求，不写入脚本文件、不打印到日志，也不上传 GitHub。Hpoi 的 `utoken` 不会被记录到脚本的请求关联缓存或转发给 EXHOBBY；原本发往 Hpoi 的 App 请求仍照常使用自己的凭据。
 
@@ -163,7 +169,7 @@ GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/wor
 
 2026-09-11 的用户实机日志已确认：另一个 Hpoi 词条 `64287`（内部 ID `8274446`）抓取到完整 44 张图、创建相册入口，并返回原生相册第一页 20 张。此记录不代表所有条目和所有 App 版本均已验证。
 
-本仓库另有离线模拟测试，覆盖并发词条隔离、分页尾页、相册与图片导航、缓存复用、中断恢复、图片 ID 冲突、验证提醒与凭据隔离。测试不连接真实站点，不代表实机验证。v3.1 的通知与跳转尚待用户实机验证。
+本仓库另有离线模拟测试，覆盖并发词条隔离、分页尾页、相册与图片导航、缓存复用、中断恢复、图片 ID 冲突、标识封面映射、验证提醒与凭据隔离。测试不连接真实站点，不代表实机验证。v3.2 的标识封面和 v3.1 起的通知与跳转尚待用户实机验证。
 
 安装 Node.js 后在仓库根目录执行，无需安装 npm 依赖：
 

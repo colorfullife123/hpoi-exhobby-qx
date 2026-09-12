@@ -64,7 +64,9 @@ const unwrap=r=>JSON.parse(r.body).data;
  assert.equal(unwrap(ra).list[0].itemId,1000000000+A);
  assert.equal(unwrap(rb).list[0].itemId,1000000000+B);
  assert.equal(unwrap(ra).list[0].picCount,45);assert.equal(unwrap(rb).list[0].picCount,27);
- assert.equal(unwrap(ra).list[0].cover,A+'.jpg');assert.equal(unwrap(rb).list[0].cover,B+'.jpg');
+ assert.equal(unwrap(ra).list[0].cover,'/__exhobby__/cover-v3.2.png');
+ assert.equal(unwrap(rb).list[0].cover,'/__exhobby__/cover-v3.2.png');
+ assert.equal(unwrap(ra).list[0].name,'EXHOBBY 相册');
  assert.equal(unwrap(ra).list[1].name,'Normal');
  for(const id of[A,B]){const g=JSON.parse(h.prefs.get(NS+'all:'+id+':gallery'));assert(g.complete);assert(g.rows.every(r=>r.path.includes(id+'-')));}
  const pics=async(id,page)=>unwrap(await h.rt('pic/list/relate-v2','itemId='+(1000000000+id)+'&itemType=album&page='+page+'&pageSize=20',{success:true,data:{list:[]}})).list;
@@ -75,6 +77,7 @@ const unwrap=r=>JSON.parse(r.body).data;
  assert.equal((await pics(B,3)).length,0);
  let detail=unwrap(await h.rt('album/detail','id='+(1000000000+A),{success:true,data:{album:seedAlbum}}));
  assert.equal(detail.album.picCount,45);
+ assert.equal(detail.album.cover,'/__exhobby__/cover-v3.2.png');
  detail=unwrap(await h.rt('item/get','id='+pa[0].id,{success:true,data:{itemData:{}}}));
  assert.equal(detail.itemData.path,pa[0].pictureInfo.path,'photo details stay with A after visiting B');
  assert.equal(JSON.stringify(await h.rt('album/detail','id=214102',{success:true,data:{album:seedAlbum}})),'{}');
@@ -85,7 +88,7 @@ const unwrap=r=>JSON.parse(r.body).data;
  let fallback=harness();let r=await fallback.load(B);
  assert.equal(unwrap(r).list[0].picCount,27);
  assert(fallback.calls[0].url.endsWith('id='+B),'global ID fallback when item/get arrives later');
- assert.equal(unwrap(r).list[0].cover,'/__exhobby__/'+rows[B][0].path);
+ assert.equal(unwrap(r).list[0].cover,'/__exhobby__/cover-v3.2.png');
  r=await fallback.load(C);assert.equal(JSON.stringify(r),'{}','no entry for uncollected item');
  const afterEmpty=fallback.calls.length;await fallback.load(C);assert.equal(fallback.calls.length,afterEmpty,'negative cache');
 
@@ -150,6 +153,20 @@ const unwrap=r=>JSON.parse(r.body).data;
  collision.prefs.set(NS+'image:'+taken,JSON.stringify({item:B,row:{path:'different.jpg',id:1}}));
  const cp=unwrap(await collision.rt('pic/list/relate-v2','itemId='+(1000000000+A)+'&itemType=album&page=1&pageSize=20',{success:true,data:{list:[]}})).list;
  assert.notEqual(cp[0].id,taken);assert(cp[0].id<2147483647);
+ // The branded cover must resolve before the general EXHOBBY photo redirect.
+ for(const file of ['hpoi-exhobby.snippet','hpoi-exhobby.local.conf']){
+  const rules=fs.readFileSync(path.join(__dirname,'..',file),'utf8').split('\n');
+  const brand=rules.findIndex(line=>line.includes('cover-v3\\.2\\.png'));
+  const photos=rules.findIndex(line=>line.includes('https://res.e39x.com/pic/n/$1'));
+  assert(brand>=0&&photos>brand,file+' must match the branded cover first');
+  assert(rules[brand].includes('/assets/exhobby-cover-v3.2.png'));
+  const pattern=new RegExp(rules[brand].split(' url 302 ')[0]);
+  assert(pattern.test('https://rfx.hpoi.net/pic/s/__exhobby__/cover-v3.2.png?size=small'));
+  assert(pattern.test('https://rfx.hpoi.net/pic/s/__exhobby__/cover-v3.2.png/120x120'));
+  assert(!pattern.test('https://rfx.hpoi.net/pic/s/__exhobby__/2026/09/photo.jpg'));
+ }
+ const cover=fs.readFileSync(path.join(__dirname,'..','assets/exhobby-cover-v3.2.png'));
+ assert.equal(cover.subarray(0,8).toString('hex'),'89504e470d0a1a0a','cover is a PNG');
  console.log('PASS: concurrent/out-of-order entries, separate caches and covers, native album/photo navigation, and pagination tails.');
  console.log('PASS: existing session/templates reused, global ID fallback, empty entries, failure isolation/resumption, and ID collision handling.');
   console.log('PASS: all-entry browser capture preserves age checks; no Hpoi credentials forwarded or logged.');
