@@ -1,0 +1,6 @@
+# HPOI startup-ad filter rules for Quantumult X
+# Keep HPOI's own /api/common/advert/list handling in rewrite, because www.hpoi.net.cn also serves normal app APIs.
+
+host, oss.cdn.adintl.cn, reject
+host, api-dsp.8ziben.com, reject
+host, bid.buluken.com, reject
