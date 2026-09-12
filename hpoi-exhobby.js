@@ -1,4 +1,4 @@
-// Hpoi + EXHOBBY native album v3.0 — Quantumult X
+// Hpoi + EXHOBBY native album v3.1 — Quantumult X
 // Automatically handles hobby entries with an EXHOBBY gallery.
 // Reuses the browser session and native templates saved by v2.3.
 // No Hpoi token is stored or sent to EXHOBBY.
@@ -6,6 +6,7 @@
 (function () {
   "use strict";
   var NS = "HPOI_EXHOBBY_NATIVE_V2:";
+  var VERIFY_COOLDOWN = 45 * 60 * 1000;
   var HOBBY = 0, ITEM = 0, ALBUM = 0;
   var ALBUM_BASE = 1000000000, PIC_BASE = 2001000000;
   var FIELDS = ["id", "itemId", "itemType", "albumId", "picId",
@@ -21,7 +22,7 @@
     if (!ended) { ended = true; $done(value || {}); }
   }
   function storageKey(key) {
-    return NS + (/^(gallery|work|lock|hobby|known)$/.test(key) ? "all:" + ITEM + ":" : "") + key;
+    return NS + (/^(gallery|gallery-link|work|lock|hobby|known)$/.test(key) ? "all:" + ITEM + ":" : "") + key;
   }
   function drop(key) { $prefs.removeValueForKey(storageKey(key)); }
   function validItem(n) { return Number.isInteger(n) && n > 0 && n < 1000000000; }
@@ -38,6 +39,60 @@
   }
   function save(key, value) {
     return $prefs.setValueForKey(JSON.stringify(value), storageKey(key));
+  }
+  function verifyURL(value) {
+    var url = String(value || "");
+    var gallery = /^https:\/\/www\.exhobby\.net\/picture\?[^\s#]+$/i.test(url) &&
+      /(?:\?|&)link=[^&#\s]+/i.test(url);
+    var search = url === "https://www.exhobby.net/search";
+    return (gallery || search) && !/[\r\n]/.test(url) ? url : "https://www.exhobby.net/search";
+  }
+  function verificationRequired(message, url) {
+    var error = new Error(message);
+    error.verificationURL = verifyURL(url || read("gallery-link"));
+    return error;
+  }
+  function verificationPage(body) {
+    var html = String(body || "");
+    if (/<h1\b[^>]*>\s*年[齡龄]提醒/i.test(html)) return true;
+    return /cf-chl-|cf-turnstile|g-recaptcha/i.test(html) &&
+      !/<figure\b/i.test(html) &&
+      !/(?:https?:)?\/\/res\.e39x\.com\/pic\//i.test(html);
+  }
+  async function notifyVerification(error) {
+    if (!error.verificationURL) return;
+    var previous = read("verify-notice"), now = Date.now();
+    if (previous && now - Number(previous.time) < VERIFY_COOLDOWN) return;
+    if (!save("verify-notice", { time: now })) {
+      log("v3.1 notice cooldown could not be saved");
+    }
+    var url = error.verificationURL;
+    var title = "EXHOBBY 需要验证";
+    var message = "请在 Safari 完成年龄确认，进入图库点一次『更多』，再返回 Hpoi。";
+    var barkURL = String($prefs.valueForKey(NS + "bark-push-url") || "");
+    // The full Bark push URL is set locally, never committed to this repository.
+    if (/^https:\/\/[^\s/?#]+\/[^\s/?#]+\/?$/.test(barkURL)) {
+      var timer;
+      try {
+        var response = await Promise.race([
+          $task.fetch({ url: barkURL, method: "POST",
+            headers: { "Content-Type": "application/json; charset=utf-8" },
+            opts: { "auto-cookie": false, "redirection": false },
+            body: JSON.stringify({ title: title, body: message,
+              url: url, group: "HPOI", isArchive: "0" }) }),
+          new Promise(function (_, reject) {
+            timer = setTimeout(function () { reject(new Error("push timeout")); }, 1200);
+          })
+        ]);
+        if (Number(response.statusCode) === 200) return;
+      } catch (_) {} finally {
+        if (typeof clearTimeout === "function") clearTimeout(timer);
+      }
+      log("v3.1 Bark delivery failed; falling back to Quantumult X notice");
+    }
+    if (typeof $notify === "function") {
+      $notify(title, "打开 EXHOBBY 验证", message + "\n" + url);
+    }
   }
   function copy(value) {
     return JSON.parse(JSON.stringify(value, function (k, v) {
@@ -257,9 +312,15 @@
       });
       if (cookie && !/[\r\n]/.test(cookie) && !/[\r\n]/.test(agent)) {
         if (save("browser-session", { cookie: cookie, agent: agent, time: Date.now() })) {
-          log("v3.0 browser session saved; reopen Hpoi");
-        } else log("v3.0 browser session cache write failed");
-      } else log("v3.0 gallery loaded, but Cookie header missing; tap More in Safari");
+          drop("verify-notice");
+          var pageItem = body.match(/\bquery\s*\.\s*item\s*=\s*["']?(\d+)/i);
+          if (pageItem && validItem(Number(pageItem[1])) &&
+              /^https:\/\/www\.exhobby\.net\/picture\?link=/.test(url)) {
+            save("all:" + Number(pageItem[1]) + ":gallery-link", verifyURL(url));
+          }
+          log("v3.1 browser session saved; reopen Hpoi");
+        } else log("v3.1 browser session cache write failed");
+      } else log("v3.1 gallery loaded, but Cookie header missing; tap More in Safari");
     }
     done();
     return true;
@@ -271,9 +332,8 @@
     var galleryURL = "", firstRows = null;
     var browser = read("browser-session");
     if (!browser || typeof browser.cookie !== "string" || !browser.cookie ||
-        /[\r\n]/.test(browser.cookie) || !Number.isFinite(browser.time) ||
-        Date.now() - browser.time > 86400000) {
-      throw new Error("open the EXHOBBY gallery in Safari, complete the site's age confirmation, then tap More");
+        /[\r\n]/.test(browser.cookie) || !Number.isFinite(browser.time)) {
+      throw verificationRequired("open the EXHOBBY gallery in Safari, complete the site's age confirmation, then tap More");
     }
 
     function safeURL(value) {
@@ -304,7 +364,7 @@
       var title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
       var heading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
       var item = html.match(/\bquery\s*\.\s*item\s*=\s*["']?(\d+)/i);
-      log("v3.0 " + stage + " title=" + label(title && title[1]) +
+      log("v3.1 " + stage + " title=" + label(title && title[1]) +
         " h1=" + label(heading && heading[1]) +
         " figures=" + (html.match(/<figure\b/gi) || []).length +
         " images=" + (html.match(/<img\b/gi) || []).length +
@@ -335,7 +395,7 @@
         try { text = decodeURIComponent(encoded); }
         catch (_) { throw new Error(stage + " invalid UTF-8 bodyBytes"); }
       }
-      log("v3.0 " + stage + " HTTP=" + response.statusCode +
+      log("v3.1 " + stage + " HTTP=" + response.statusCode +
         " body=" + (text === null ? "missing" : text.length) +
         " type=" + (header(response, "content-type") || "unknown"));
       if (text === null || !text.trim()) {
@@ -347,7 +407,12 @@
     function parseJSON(text, stage) {
       try { return JSON.parse(text); }
       catch (_) {
-        if (/^\s*</.test(text)) htmlInfo(text, stage);
+        if (/^\s*</.test(text)) {
+          htmlInfo(text, stage);
+          if (verificationPage(text)) {
+            throw verificationRequired("EXHOBBY requires browser verification", galleryURL);
+          }
+        }
         throw new Error(stage + " expected JSON, received other content");
       }
     }
@@ -383,21 +448,26 @@
         var status = Number(response.statusCode);
         if ([301, 302, 303, 307, 308].indexOf(status) >= 0) {
           url = safeURL(header(response, "location"));
-          log("v3.0 " + stage + " redirect=" + url.split("?")[0]);
+          log("v3.1 " + stage + " redirect=" + url.split("?")[0]);
           if (status === 303 || ((status === 301 || status === 302) && method === "POST")) {
             method = "GET"; body = "";
           }
           continue;
         }
-        if (status !== 200) throw new Error(stage + " HTTP " + status);
+        if (status !== 200) {
+          if (verificationPage(response.body)) {
+            throw verificationRequired("EXHOBBY requires browser verification", galleryURL);
+          }
+          throw new Error(stage + " HTTP " + status);
+        }
         return readText(response, stage);
       }
       throw new Error(stage + " too many redirects");
     }
     function parseFirst(html) {
       var actualItem = htmlInfo(html, "first HTML");
-      if (/<h1\b[^>]*>\s*年[齡龄]提醒/i.test(html)) {
-        throw new Error("EXHOBBY still requires age confirmation; reopen its gallery in Safari and tap More");
+      if (verificationPage(html)) {
+        throw verificationRequired("EXHOBBY requires browser verification; reopen its gallery in Safari and tap More", galleryURL);
       }
       if (actualItem !== null && actualItem !== ITEM) {
         throw new Error("first HTML belongs to a different item");
@@ -420,7 +490,7 @@
       if (!rows.length) {
         throw new Error("fresh first HTML has no gallery pictures; see title/redirect above");
       }
-      log("v3.0 first HTML count=" + rows.length);
+      log("v3.1 first HTML count=" + rows.length);
       return rows;
     }
     async function bootstrap(ticket) {
@@ -439,7 +509,8 @@
         throw new Error("map.url is not a full picture link");
       }
       galleryURL = url;
-      log("v3.0 fresh map.url ready; preview list not used");
+      save("gallery-link", url);
+      log("v3.1 fresh map.url ready; preview list not used");
       firstRows = parseFirst(await request(url, "GET", "", "first HTML", ticket));
     }
     return {
@@ -450,7 +521,7 @@
           "page=" + page + "&item=" + ITEM + "&type=all", "page " + page, ticket);
         var list = parseJSON(text, "page " + page);
         if (!Array.isArray(list)) throw new Error("page " + page + " response is not an array");
-        log("v3.0 page=" + page + " count=" + list.length);
+        log("v3.1 page=" + page + " count=" + list.length);
         return list;
       }
     };
@@ -460,7 +531,7 @@
     return new Promise(function (resolve, reject) {
       var finished = false;
       var timer = setTimeout(function () {
-        finish(new Error("v3.0 page=" + page + " timeout; refresh to resume"));
+        finish(new Error("v3.1 page=" + page + " timeout; refresh to resume"));
       }, milliseconds);
       function finish(error, value) {
         if (finished) return;
@@ -494,7 +565,7 @@
       var firstSignature = first.map(function (r) { return r.path; }).join("|");
       if (work.next > 1 && work.first !== firstSignature) {
         work = { version: 30, started: now, next: 1, rows: [], last: "", first: "" };
-        log("v3.0 first page changed; restarting pagination");
+        log("v3.1 first page changed; restarting pagination");
       }
       work.first = firstSignature;
       var paths = Object.create(null), ids = Object.create(null);
@@ -658,7 +729,11 @@
     done();
   }
   main().catch(function (e) {
-    log("v3.0 " + (e && e.message ? e.message : "operation failed"));
-    if (virtualResponse) errorReply(); else done();
+    log("v3.1 " + (e && e.message ? e.message : "operation failed"));
+    Promise.resolve().then(function () {
+      if (e && e.verificationURL) return notifyVerification(e);
+    }).catch(function () {}).then(function () {
+      if (virtualResponse) errorReply(); else done();
+    });
   });
 })();

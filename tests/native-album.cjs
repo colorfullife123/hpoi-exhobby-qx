@@ -8,13 +8,14 @@ function html(id){return '<title>Gallery</title><script>query.item="'+id+'";</sc
 const json=v=>({statusCode:200,headers:{'Content-Type':'application/json'},body:JSON.stringify(v)});
 const seedAlbum={id:12345678,itemId:214102,itemType:'album',categoryId:8,name:'Normal',picCount:2,cover:'normal.jpg',user:{id:1,nickname:'Real author'}};
 function harness(){
- const prefs=new Map(),logs=[],calls=[];
+  const prefs=new Map(),logs=[],calls=[],notices=[];
  prefs.set(NS+'browser-session',JSON.stringify({cookie:'EXHOBBY_BROWSER_COOKIE',agent:'Safari fixture',time:Date.now()}));
  prefs.set(NS+'seed:album/detail',JSON.stringify({p:{id:'214102'},album:seedAlbum}));
  prefs.set(NS+'seed:pic/list/relate-v2',JSON.stringify({p:{itemId:'214102',itemType:'album',page:'1',pageSize:'20'},picture:{id:2,itemId:3,itemType:'pic',categoryId:6,path:'normal.jpg'}}));
- let failPage=0, failItem=0;
- async function fetch(o){
-  calls.push(o);
+  let failPage=0, failItem=0, ageGate=0, barkFails=false;
+  async function fetch(o){
+   calls.push(o);
+   if(o.url.startsWith('https://api.day.app/'))return barkFails?{statusCode:503}:json({code:200});
   assert.equal(o.headers.Cookie,'EXHOBBY_BROWSER_COOKIE');
   assert.equal(o.headers['User-Agent'],'Safari fixture');
   assert(o.url.startsWith('https://www.exhobby.net/'));
@@ -26,7 +27,11 @@ function harness(){
    if(!rows[id].length)return json({map:{list:[]}});
    return json({map:{list:rows[id].slice(0,6),url:'https://www.exhobby.net/picture?link=G_'+id}});
   }
-  if(u.pathname==='/picture')return{statusCode:200,body:html(Number(u.searchParams.get('link').slice(2)))};
+   if(u.pathname==='/picture'){
+    const id=Number(u.searchParams.get('link').slice(2));
+    if(ageGate===-id)return{statusCode:403,body:'<div class="cf-turnstile">Browser verification</div>'};
+    return{statusCode:200,body:ageGate===id?'<h1>年齡提醒！</h1>':html(id)};
+   }
   const id=Number(u.pathname.split('/')[2]),p=new URLSearchParams(o.body),page=Number(p.get('page'));
   assert.equal(Number(p.get('item')),id);assert(page>=2);
   if(id===failItem&&page===failPage)return{statusCode:200,headers:{'Content-Length':'0'}};
@@ -34,7 +39,7 @@ function harness(){
  }
  function run(req,res){
   return new Promise((resolve,reject)=>{
-   let done=0;const env={$request:req,$prefs:{valueForKey:k=>prefs.get(k),setValueForKey:(v,k)=>{prefs.set(k,v);return true;},removeValueForKey:k=>prefs.delete(k)},
+    let done=0;const env={$request:req,$prefs:{valueForKey:k=>prefs.get(k),setValueForKey:(v,k)=>{prefs.set(k,v);return true;},removeValueForKey:k=>prefs.delete(k)},$notify:(...a)=>notices.push(a),
     $task:{fetch},console:{log:s=>logs.push(s)},setTimeout,clearTimeout,$done:v=>{assert.equal(++done,1);resolve(v);}};
    if(res!==undefined)env.$response=res;
    try{vm.runInNewContext(script,env,{timeout:2000})}catch(e){reject(e)}
@@ -49,7 +54,7 @@ function harness(){
  async function rt(endpoint,body,data){return end(await begin(endpoint,body),data);}
  async function metadata(id){return rt('item/get','id='+id,{success:true,data:{itemData:{id,itemId:items[id],itemType:'hobby',cover:id+'.jpg'}}});}
  async function load(id){return rt('hobby/album','id='+id+'&page=1&pageSize=10&utoken=HPOI_PRIVATE_TOKEN',{success:true,data:{list:[seedAlbum]}});}
- return{prefs,logs,calls,run,begin,end,rt,metadata,load,fail:(id,page)=>{failItem=id;failPage=page;}};
+  return{prefs,logs,calls,notices,run,begin,end,rt,metadata,load,fail:(id,page)=>{failItem=id;failPage=page;},gate:id=>{ageGate=id;},barkFail:()=>{barkFails=true;}};
 }
 const unwrap=r=>JSON.parse(r.body).data;
 (async()=>{
@@ -93,9 +98,50 @@ const unwrap=r=>JSON.parse(r.body).data;
 
  const browserReq={url:'https://www.exhobby.net/picture/'+B,method:'POST',headers:{Cookie:'NEW_COOKIE','User-Agent':'New Safari'}};
  await h.run(browserReq,json(rows[B].slice(20)));
- assert.equal(JSON.parse(h.prefs.get(NS+'browser-session')).cookie,'NEW_COOKIE','browser capture supports another item');
+  assert.equal(JSON.parse(h.prefs.get(NS+'browser-session')).cookie,'NEW_COOKIE','browser capture supports another item');
  await h.run({...browserReq,url:'https://www.exhobby.net/picture?link=x',headers:{Cookie:'AGE_GATE_COOKIE'}},{statusCode:200,body:'<h1>年齡提醒！</h1>'});
- assert.equal(JSON.parse(h.prefs.get(NS+'browser-session')).cookie,'NEW_COOKIE','age gate cannot overwrite confirmed session');
+  assert.equal(JSON.parse(h.prefs.get(NS+'browser-session')).cookie,'NEW_COOKIE','age gate cannot overwrite confirmed session');
+
+  let reusable=harness();
+  reusable.prefs.set(NS+'browser-session',JSON.stringify({cookie:'EXHOBBY_BROWSER_COOKIE',agent:'Safari fixture',time:Date.now()-2*86400000}));
+  assert.equal(unwrap(await reusable.load(A)).list[0].picCount,45,'old browser session works while accepted by the website');
+  assert.equal(reusable.notices.length,0,'no notification for an accepted old cookie');
+
+  let missing=harness();
+  missing.prefs.delete(NS+'browser-session');
+  missing.prefs.set(NS+'all:'+A+':gallery-link',JSON.stringify('https://www.exhobby.net/picture?link=G_'+A));
+  assert.equal(JSON.stringify(await missing.load(A)),'{}');
+  assert.equal(missing.notices.length,1,'missing session triggers a Quantumult X notification');
+  assert(missing.notices[0][2].includes('https://www.exhobby.net/picture?link=G_'+A),'prior gallery opens directly');
+  await missing.load(B);
+  assert.equal(missing.notices.length,1,'different entries do not spam verification notices');
+  await missing.run({url:'https://www.exhobby.net/picture?link=G_'+A,method:'GET',headers:{Cookie:'RECOVERED_COOKIE','User-Agent':'Safari fixture'}},{statusCode:200,body:html(A)});
+  assert.equal(missing.prefs.has(NS+'verify-notice'),false,'successful browser verification clears notice cooldown');
+  assert.equal(JSON.parse(missing.prefs.get(NS+'all:'+A+':gallery-link')),'https://www.exhobby.net/picture?link=G_'+A);
+
+  let gated=harness();gated.gate(A);
+  assert.equal(JSON.stringify(await gated.load(A)),'{}');
+  assert.equal(gated.notices.length,1,'explicit website age reminder triggers a notification');
+  assert(gated.notices[0][2].includes('https://www.exhobby.net/picture?link=G_'+A));
+  let challenged=harness();challenged.gate(-A);
+  assert.equal(JSON.stringify(await challenged.load(A)),'{}');
+  assert.equal(challenged.notices.length,1,'explicit HTTP 403 human challenge triggers a notification');
+
+  let pushed=harness();pushed.prefs.delete(NS+'browser-session');
+  pushed.prefs.set(NS+'bark-push-url','https://api.day.app/FAKE_KEY');
+  pushed.prefs.set(NS+'all:'+A+':gallery-link',JSON.stringify('https://www.exhobby.net/picture?link=G_'+A));
+  await pushed.load(A);
+  assert.equal(pushed.notices.length,0,'successful Bark send does not duplicate Quantumult X alert');
+  const bark=pushed.calls.find(c=>c.url==='https://api.day.app/FAKE_KEY');
+  assert(bark,'Bark endpoint is called');
+  assert.equal(JSON.parse(bark.body).url,'https://www.exhobby.net/picture?link=G_'+A);
+  assert(!JSON.stringify(bark).includes('EXHOBBY_BROWSER_COOKIE'));
+  assert(!JSON.stringify(bark).includes('HPOI_PRIVATE_TOKEN'));
+  let pushFailed=harness();pushFailed.prefs.delete(NS+'browser-session');pushFailed.barkFail();
+  pushFailed.prefs.set(NS+'bark-push-url','https://api.day.app/FAKE_KEY');
+  await pushFailed.load(A);
+  assert.equal(pushFailed.notices.length,1,'failed Bark delivery falls back to Quantumult X');
+  assert(pushFailed.notices[0][2].includes('https://www.exhobby.net/search'),'unknown galleries open the search page');
 
  // Deliberately occupy a picture hash ID; the probe must choose another ID.
  const collision=harness();await collision.metadata(A);await collision.load(A);
@@ -106,5 +152,6 @@ const unwrap=r=>JSON.parse(r.body).data;
  assert.notEqual(cp[0].id,taken);assert(cp[0].id<2147483647);
  console.log('PASS: concurrent/out-of-order entries, separate caches and covers, native album/photo navigation, and pagination tails.');
  console.log('PASS: existing session/templates reused, global ID fallback, empty entries, failure isolation/resumption, and ID collision handling.');
- console.log('PASS: all-entry browser capture preserves age checks; no Hpoi credentials forwarded or logged.');
+  console.log('PASS: all-entry browser capture preserves age checks; no Hpoi credentials forwarded or logged.');
+  console.log('PASS: age reminders, accepted old cookies, notification cooldown, saved gallery links and optional Bark privacy.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
