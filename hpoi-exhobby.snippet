@@ -1,10 +1,18 @@
 # Hpoi EXHOBBY v3.2 - Quantumult X remote rewrite
+# Includes targeted HPOI startup-ad cleanup confirmed from captured traffic.
 # Assumes branch main and hpoi-exhobby.js at the repository root.
 # Confirm that the script URL is publicly accessible before enabling.
-# Disable the previous local Hpoi EXHOBBY rules when enabling this resource.
+# Disable the previous local Hpoi EXHOBBY/ad rules when enabling this resource.
 
-hostname = www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
+hostname = www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net, api-dsp.8ziben.com, bid.buluken.com, oss.cdn.adintl.cn
 
+# HPOI startup advertising
+^https://www\.hpoi\.net\.cn/api/common/advert/list(?:\?|$) url reject-dict
+^https://api-dsp\.8ziben\.com/api/v2/ios/adverts(?:\?|$) url reject-dict
+^https://bid\.buluken\.com/bid(?:\?|$) url reject-dict
+^https://oss\.cdn\.adintl\.cn/ url reject
+
+# EXHOBBY native-album integration
 ^https://www\.exhobby\.net/picture(?:\?|/\d+(?:\?|$)) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js
 ^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-request-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js
 ^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js
