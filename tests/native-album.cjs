@@ -162,6 +162,11 @@ const unwrap=r=>JSON.parse(r.body).data;
   const upgrade=rules.findIndex(line=>line.includes('url 307 https://www.exhobby.net/$1'));
   const capture=rules.findIndex(line=>line.includes('url script-response-body')&&line.includes('www\\.exhobby\\.net/picture'));
   assert(upgrade>=0&&capture>upgrade,file+' must upgrade HTTP before HTTPS session capture');
+  if(file==='hpoi-exhobby.snippet'){
+   const remoteScripts=rules.filter(line=>line.includes('url script-'));
+   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.3.0')),
+    'remote scripts must bypass the v3.2 URL cache');
+  }
   const [upgradeSource,upgradeTarget]=rules[upgrade].split(' url 307 ');
   const upgradePattern=new RegExp(upgradeSource);
   const oldSafariURL='http://www.exhobby.net/picture/32625940?page=2&item=32625940';
