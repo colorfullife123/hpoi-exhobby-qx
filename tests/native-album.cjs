@@ -1,6 +1,9 @@
 // Fixtures below use dummy credentials and mock responses; no network requests.
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
+const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
+assert(script.startsWith('// Hpoi + EXHOBBY native album v3.3'));
+assert.equal(pkg.version,'3.3.0');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
@@ -156,6 +159,15 @@ const unwrap=r=>JSON.parse(r.body).data;
  // The branded cover must resolve before the general EXHOBBY photo redirect.
  for(const file of ['hpoi-exhobby.snippet','hpoi-exhobby.local.conf']){
   const rules=fs.readFileSync(path.join(__dirname,'..',file),'utf8').split('\n');
+  const upgrade=rules.findIndex(line=>line.includes('url 307 https://www.exhobby.net/$1'));
+  const capture=rules.findIndex(line=>line.includes('url script-response-body')&&line.includes('www\\.exhobby\\.net/picture'));
+  assert(upgrade>=0&&capture>upgrade,file+' must upgrade HTTP before HTTPS session capture');
+  const [upgradeSource,upgradeTarget]=rules[upgrade].split(' url 307 ');
+  const upgradePattern=new RegExp(upgradeSource);
+  const oldSafariURL='http://www.exhobby.net/picture/32625940?page=2&item=32625940';
+  assert.equal(oldSafariURL.replace(upgradePattern,upgradeTarget),
+    'https://www.exhobby.net/picture/32625940?page=2&item=32625940');
+  assert(!upgradePattern.test('https://www.exhobby.net/picture/32625940'));
   const brand=rules.findIndex(line=>line.includes('cover-v3\\.2\\.png'));
   const photos=rules.findIndex(line=>line.includes('https://res.e39x.com/pic/n/$1'));
   assert(brand>=0&&photos>brand,file+' must match the branded cover first');
@@ -171,4 +183,5 @@ const unwrap=r=>JSON.parse(r.body).data;
  console.log('PASS: existing session/templates reused, global ID fallback, empty entries, failure isolation/resumption, and ID collision handling.');
   console.log('PASS: all-entry browser capture preserves age checks; no Hpoi credentials forwarded or logged.');
   console.log('PASS: age reminders, accepted old cookies, notification cooldown, saved gallery links and optional Bark privacy.');
+  console.log('PASS: v3.3 upgrades legacy HTTP gallery URLs with POST-preserving 307 rules before session capture.');
 })().catch(e=>{console.error(e);process.exitCode=1;});

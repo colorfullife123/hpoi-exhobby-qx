@@ -2,7 +2,13 @@
 
 在 Hpoi iOS App 的手办词条相册列表中添加「EXHOBBY 相册」入口，点击后通过 Hpoi 原生相册查看图片。
 
-当前版本：**v3.2**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。外层详情页只添加相册入口，不插入预览图片网格。EXHOBBY 相册列表使用单独设计的标识封面，进入相册后仍显示各词条自己的图库图片。
+当前版本：**v3.3**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。外层详情页只添加相册入口，不插入预览图片网格。EXHOBBY 相册列表使用单独设计的标识封面，进入相册后仍显示各词条自己的图库图片。
+
+## v3.3 更新
+
+- 修复部分旧版 iOS／Safari 从 `http://www.exhobby.net` 打开图库时，HTTPS 会话捕获规则完全不执行的问题。
+- 在脚本规则之前使用 `307` 自动升级到 HTTPS，保留「更多／More」分页请求的 POST 方法、Cookie 和请求体。
+- 不更改相册缓存结构、合成 ID 或标识封面；从 v3.2 升级无需清除现有数据，也无需重新初始化普通 Hpoi 相册模板。
 
 ## 功能
 
@@ -13,6 +19,7 @@
 - 支持原生相册分页、不同词条之间的缓存隔离和中断后继续获取。
 - 沿用 v2.3 已保存的浏览器会话和原生相册模板。
 - 只有在缺少会话或网站明确返回年龄／人机验证页面时通知，45 分钟内不重复提醒；已有 Cookie 仍可使用时自动复用。
+- 自动把旧设备产生的 EXHOBBY HTTP 图库请求升级为 HTTPS。
 
 适用范围是触发 `/api/hobby/album` 的手办／模型词条；不包含人物、厂商等其他页面。
 
@@ -28,7 +35,7 @@
 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.snippet, tag=HPOI_EXHOBBY, enabled=true
 ```
 
-保存并更新远程资源，确认资源成功加载五条重写规则。该订阅会引用仓库里的 JavaScript 和 `assets/exhobby-cover-v3.2.png`，无需额外保存同名本地脚本。
+保存并更新远程资源，确认资源成功加载七条重写规则。该订阅会引用仓库里的 JavaScript 和 `assets/exhobby-cover-v3.2.png`，无需额外保存同名本地脚本。
 
 如果通过圈叉的重写资源界面添加，资源地址填写上面的订阅链接。配置行用于 `[rewrite_remote]`，不要把仓库首页链接或 JS 文件链接当作重写订阅地址。
 
@@ -58,12 +65,12 @@ www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 
 ### 4. 首次准备 EXHOBBY 会话
 
-保持 Quantumult X 开启，在 Safari 打开 [EXHOBBY 搜索页](https://www.exhobby.net/search)，搜索一个有图库的 Hpoi 词条链接，按照网站要求完成年龄确认，进入图库并点击一次「更多／More」。
+保持 Quantumult X 开启，在 Safari 打开 [EXHOBBY 搜索页](https://www.exhobby.net/search)，搜索一个有图库的 Hpoi 词条链接，按照网站要求完成年龄确认，进入图库并点击一次「更多／More」。如果旧设备收到的是 HTTP 链接，v3.3 会先用 `307` 自动升级为 HTTPS，再由脚本保存会话。
 
 看到以下日志后返回 Hpoi：
 
 ```text
-[HPOI_EXHOBBY] v3.2 browser session saved; reopen Hpoi
+[HPOI_EXHOBBY] v3.3 browser session saved; reopen Hpoi
 ```
 
 这是保存当前设备正常访问图库所使用的浏览器会话，不需要手动复制 Cookie，也不需要对每个词条分别操作。会话失效后重复此步骤即可。
@@ -90,9 +97,11 @@ www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 
 ## 从旧版升级与日常更新
 
-已经使用本地 v2.3／v3.0／v3.1 的用户，添加并成功加载远程订阅后，停用旧的本地重写即可。脚本继续使用原有存储命名空间，已保存的相册模板与仍有效的浏览器会话通常可以复用，无需主动清空数据。
+已经使用本地 v2.3／v3.0／v3.1／v3.2 的用户，添加并成功加载远程订阅后，停用旧的本地重写即可。脚本继续使用原有存储命名空间，已保存的相册模板与仍有效的浏览器会话通常可以复用，无需主动清空数据。
 
-从远程 v3.1 升级时，先把主脚本、两份重写配置以及 `assets/exhobby-cover-v3.2.png` 上传到 GitHub，再更新圈叉的远程重写资源。新增的封面规则要排在 EXHOBBY 图片通用跳转规则之前。封面资产的 Raw 链接应能直接打开图片；若看不到新版封面，请检查五条规则是否都已加载及图片资源是否公开可访问。
+从远程 v3.2 升级时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源。确认资源中新增的 HTTP `307` 规则排在 HTTPS 会话捕获规则之前；不需要重新上传或改名 `assets/exhobby-cover-v3.2.png`。
+
+从 v3.1 或更早版本升级时，仍需确认主脚本、两份重写配置以及 `assets/exhobby-cover-v3.2.png` 都已在仓库中；封面规则必须排在 EXHOBBY 图片通用跳转规则之前。
 
 仓库脚本更新后，在圈叉中更新远程资源，并查看运行日志里的版本号确认实际加载的版本。GitHub 文件修改不等于设备已经更新，远程脚本缓存也可能需要刷新。
 
@@ -100,11 +109,11 @@ www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 
 ## 本地安装（备选）
 
-如果需要使用本地文件，将 [`hpoi-exhobby.js`](hpoi-exhobby.js) 保存为 Quantumult X 可识别的本地脚本，并将 [`hpoi-exhobby.local.conf`](hpoi-exhobby.local.conf) 中的五条规则合并到现有 `[rewrite_local]` 段，同时保留上述 MITM 设置。标识封面通过公开 Raw 链接加载，图片资产仍需上传到仓库。
+如果需要使用本地文件，将 [`hpoi-exhobby.js`](hpoi-exhobby.js) 保存为 Quantumult X 可识别的本地脚本，并将 [`hpoi-exhobby.local.conf`](hpoi-exhobby.local.conf) 中的规则合并到现有 `[rewrite_local]` 段，同时保留上述 MITM 设置。标识封面通过公开 Raw 链接加载，图片资产仍需上传到仓库。
 
 本地配置文件是配置片段，不要用它覆盖整份圈叉配置。本地和远程两种安装方式选择一种，避免两套规则同时执行。
 
-脚本原文地址：[hpoi-exhobby.js](https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js)。正常脚本以 `// Hpoi + EXHOBBY native album v3.2` 开头；`Unsupported Media Type`、HTML 错误页和 Markdown 代码围栏都不能作为 JavaScript 保存。
+脚本原文地址：[hpoi-exhobby.js](https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js)。正常脚本以 `// Hpoi + EXHOBBY native album v3.3` 开头；`Unsupported Media Type`、HTML 错误页和 Markdown 代码围栏都不能作为 JavaScript 保存。
 
 ## 仓库文件与维护
 
@@ -141,6 +150,7 @@ GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/wor
 | `h1=年齡提醒！` | 返回的是网站年龄提醒页，在 Safari 完成网站要求后重新保存会话。 |
 | `EXHOBBY requires browser verification` | 网站明确返回了年龄／人机验证页面，点击 Bark 提醒中的网址并按网页提示操作。 |
 | `Bark delivery failed` | 推送服务器暂不可用，脚本已改发圈叉原生通知。 |
+| Safari 已验证但没有任何脚本日志 | 检查请求地址是否仍为 `http://www.exhobby.net`。v3.3 应先命中 `307` 规则并升级为 HTTPS；更新远程资源后重试。 |
 | EXHOBBY 相册封面未显示 | 检查 `assets/exhobby-cover-v3.2.png` 是否上传，以及封面 302 规则是否排在通用图片 302 规则之前；远程资源更新后再刷新 Hpoi。 |
 | `empty/missing body; end NOT confirmed` | 本次响应缺失，不能当作图库结束；返回词条刷新重试。 |
 | `pagination timeout; refresh to resume` | 已保存本轮进度，返回词条刷新以继续抓取。 |
@@ -161,7 +171,7 @@ GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/wor
 
 仓库只包含脚本、原创标识封面、规则、文档和使用假数据的测试，不附带实际抓包、账号凭据或图库图片。
 
-脚本通过 Quantumult X 本地偏好存储保存浏览器 Cookie、User-Agent、请求关联信息、原生模板、图库元数据和已访问图库的链接。EXHOBBY Cookie 仅用于 `www.exhobby.net` 的请求，不写入脚本文件、不打印到日志，也不上传 GitHub。Hpoi 的 `utoken` 不会被记录到脚本的请求关联缓存或转发给 EXHOBBY；原本发往 Hpoi 的 App 请求仍照常使用自己的凭据。
+脚本通过 Quantumult X 本地偏好存储保存浏览器 Cookie、User-Agent、请求关联信息、原生模板、图库元数据和已访问图库的链接。EXHOBBY Cookie 仅用于 `www.exhobby.net` 的 HTTPS 请求；v3.3 会在会话捕获之前升级站点返回的旧 HTTP 链接。Cookie 不写入脚本文件、不打印到日志，也不上传 GitHub。Hpoi 的 `utoken` 不会被记录到脚本的请求关联缓存或转发给 EXHOBBY；原本发往 Hpoi 的 App 请求仍照常使用自己的凭据。
 
 每台设备需要通过网站正常完成访问要求。提交问题时请提供版本、词条 ID 和相关报错，并先遮盖账号凭据。
 
@@ -169,7 +179,9 @@ GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/wor
 
 2026-09-11 的用户实机日志已确认：另一个 Hpoi 词条 `64287`（内部 ID `8274446`）抓取到完整 44 张图、创建相册入口，并返回原生相册第一页 20 张。此记录不代表所有条目和所有 App 版本均已验证。
 
-本仓库另有离线模拟测试，覆盖并发词条隔离、分页尾页、相册与图片导航、缓存复用、中断恢复、图片 ID 冲突、标识封面映射、验证提醒与凭据隔离。测试不连接真实站点，不代表实机验证。v3.2 的标识封面和 v3.1 起的通知与跳转尚待用户实机验证。
+2026-09-13 的另一台 iOS 16.7.16／Safari 16.6.2 设备实机请求确认：EXHOBBY 的「更多」分页仍可能使用 HTTP POST，且已携带 `is18=yes` 的年龄确认 Cookie；手动改用 HTTPS 后会话成功保存。v3.3 据此加入自动 `307` 升级。
+
+本仓库另有离线模拟测试，覆盖并发词条隔离、分页尾页、相册与图片导航、缓存复用、中断恢复、图片 ID 冲突、标识封面映射、验证提醒、凭据隔离，以及 HTTP 图库链接到 HTTPS 的 307 规则顺序与 URL 保真。测试不连接真实站点，不代表所有设备和站点状态均已验证。
 
 安装 Node.js 后在仓库根目录执行，无需安装 npm 依赖：
 
