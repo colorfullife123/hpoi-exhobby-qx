@@ -1,6 +1,6 @@
 # Hpoi EXHOBBY v3.3 - Quantumult X remote rewrite
 # Includes targeted HPOI startup-ad cleanup confirmed from captured traffic.
-# Ad cleanup revision: 2026-09-16.4
+# Ad cleanup revision: 2026-09-16.5
 # Assumes branch main and hpoi-exhobby.js at the repository root.
 # Confirm that the script URL is publicly accessible before enabling.
 # Disable the previous local Hpoi EXHOBBY/ad rules when enabling this resource.
@@ -13,6 +13,9 @@ hostname = hpoi.net.cn, www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net, t2.fancy
 
 # Hide Taobao-related products below item details while keeping normal item data and image CDNs untouched.
 ^https://(?:www\.)?hpoi\.net\.cn/api/hobby/amazonPrice(?:\?|$) url reject-dict
+
+# Current HPOI builds fetch Taobao cards from /api/goods/tb/more-v2; clear only the Taobao goods API family.
+^https://(?:www\.)?hpoi\.net\.cn/api/goods/tb/[^?]+(?:\?|$) url reject-dict
 
 # Cut off direct third-party bidding, creative, exposure and reporting requests used by HPOI ad SDKs.
 ^https?://pic\.fancyapi\.com/.* url reject-img
