@@ -1,6 +1,31 @@
 # HPOI startup-ad filter rules for Quantumult X
+# Updated 2026-09-16 from live HPOI iOS traffic.
 # Keep HPOI's own /api/common/advert/list handling in rewrite, because www.hpoi.net.cn also serves normal app APIs.
+# Do not reject www.hpoi.net.cn, rfx.hpoi.net, img.alicdn.com, user.jpush.cn, or umeng.com.
 
+# Original HPOI ad endpoints
 host, oss.cdn.adintl.cn, reject
 host, api-dsp.8ziben.com, reject
 host, bid.buluken.com, reject
+
+# FancyAPI / Taobao ad chain
+host, t2.fancyapi.com, reject
+host, pic.fancyapi.com, reject
+host, wcp.taobao.com, reject
+host, qzs.gdtimg.com, reject
+host, ad.toutiao.com, reject
+
+# Fallback ad SDK endpoints
+host, sdk-report.beizi.biz, reject
+host, sdk.e.qq.com, reject
+host, sdk-track.66mobi.com, reject
+host-suffix, xdmssp.com, reject
+host-suffix, adbiding.com, reject
+
+# Pangolin fallback endpoints
+host-suffix, pangolin-sdk-toutiao.com, reject
+host-suffix, pangolin-sdk-toutiao1.com, reject
+host-suffix, pangolin-sdk-toutiao-b.com, reject
+host, pangolin.snssdk.com, reject
+host-suffix, pglstatp-toutiao.com, reject
+host-suffix, pglstatp-snssdk-toutiao.com, reject
