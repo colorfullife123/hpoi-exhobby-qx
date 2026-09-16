@@ -1,22 +1,22 @@
 # Hpoi EXHOBBY v3.3 - Quantumult X remote rewrite
 # Includes targeted HPOI startup-ad cleanup confirmed from captured traffic.
-# Ad cleanup revision: 2026-09-16.3
+# Ad cleanup revision: 2026-09-16.4
 # Assumes branch main and hpoi-exhobby.js at the repository root.
 # Confirm that the script URL is publicly accessible before enabling.
 # Disable the previous local Hpoi EXHOBBY/ad rules when enabling this resource.
 
-hostname = www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net, t2.fancyapi.com, pic.fancyapi.com, wcp.taobao.com, qzs.gdtimg.com, ad.toutiao.com, sdk-report.beizi.biz, sdk.e.qq.com, sdk-track.66mobi.com, sdk-stats.litemob.net, mantis.bayescom.com, ipv4.gdt.qq.com, log-api.pangolin-sdk-toutiao.com, dmp-collect.xdmssp.com, s1.adbiding.com
+hostname = hpoi.net.cn, www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net, t2.fancyapi.com, pic.fancyapi.com, wcp.taobao.com, qzs.gdtimg.com, ad.toutiao.com, sdk-report.beizi.biz, sdk.e.qq.com, sdk-track.66mobi.com, sdk-stats.litemob.net, mantis.bayescom.com, ipv4.gdt.qq.com, mi.gdt.qq.com, log-api.pangolin-sdk-toutiao.com, dmp-collect.xdmssp.com, s1.adbiding.com, adm.zhangyuyidong.cn, sdklog.zhangyuyidong.cn, v.adintl.cn, sswxrta.hardcoresir.net, guanggao-prod.cn-shanghai.log.aliyuncs.com
 
 # HPOI startup advertising
 # HPOI's own advert API shares the normal app host, so clear only this URL instead of rejecting the whole host.
-^https://www\.hpoi\.net\.cn/api/common/advert/list(?:\?|$) url reject-dict
+^https://(?:www\.)?hpoi\.net\.cn/api/common/advert/list(?:\?|$) url reject-dict
 
 # Hide Taobao-related products below item details while keeping normal item data and image CDNs untouched.
-^https://www\.hpoi\.net\.cn/api/hobby/amazonPrice(?:\?|$) url reject-dict
+^https://(?:www\.)?hpoi\.net\.cn/api/hobby/amazonPrice(?:\?|$) url reject-dict
 
-# Cut off direct third-party bidding, creative and reporting requests used after the HPOI advert list is empty.
+# Cut off direct third-party bidding, creative, exposure and reporting requests used by HPOI ad SDKs.
 ^https?://pic\.fancyapi\.com/.* url reject-img
-^https?://(?:t2\.fancyapi\.com|wcp\.taobao\.com|qzs\.gdtimg\.com|ad\.toutiao\.com|sdk-report\.beizi\.biz|sdk\.e\.qq\.com|sdk-track\.66mobi\.com|sdk-stats\.litemob\.net|mantis\.bayescom\.com|ipv4\.gdt\.qq\.com|log-api\.pangolin-sdk-toutiao\.com|dmp-collect\.xdmssp\.com|s1\.adbiding\.com)/.* url reject-200
+^https?://(?:t2\.fancyapi\.com|wcp\.taobao\.com|qzs\.gdtimg\.com|ad\.toutiao\.com|sdk-report\.beizi\.biz|sdk\.e\.qq\.com|sdk-track\.66mobi\.com|sdk-stats\.litemob\.net|mantis\.bayescom\.com|ipv4\.gdt\.qq\.com|mi\.gdt\.qq\.com|log-api\.pangolin-sdk-toutiao\.com|dmp-collect\.xdmssp\.com|s1\.adbiding\.com|adm\.zhangyuyidong\.cn|sdklog\.zhangyuyidong\.cn|v\.adintl\.cn|sswxrta\.hardcoresir\.net|guanggao-prod\.cn-shanghai\.log\.aliyuncs\.com)/.* url reject-200
 
 # EXHOBBY native-album integration
 # Some older Safari/EXHOBBY combinations still open gallery links over HTTP.
