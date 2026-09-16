@@ -1,24 +1,31 @@
 # HPOI startup-ad filter rules for Quantumult X
 # Updated 2026-09-16 from live HPOI iOS traffic.
-# Keep HPOI's own /api/common/advert/list handling in rewrite, because www.hpoi.net.cn also serves normal app APIs.
-# Do not reject www.hpoi.net.cn, rfx.hpoi.net, img.alicdn.com, user.jpush.cn, or umeng.com.
+# Keep HPOI's own advert/product API handling in rewrite, because hpoi.net.cn also serves normal app APIs.
+# Do not reject hpoi.net.cn, rfx.hpoi.net, img.alicdn.com, user.jpush.cn, or umeng.com.
 
 # Original HPOI ad endpoints
-host, oss.cdn.adintl.cn, reject
+host-suffix, adintl.cn, reject
 host, api-dsp.8ziben.com, reject
 host, bid.buluken.com, reject
 
 # FancyAPI / Taobao ad chain
-host, t2.fancyapi.com, reject
-host, pic.fancyapi.com, reject
+host-suffix, fancyapi.com, reject
 host, wcp.taobao.com, reject
 host, qzs.gdtimg.com, reject
 host, ad.toutiao.com, reject
 
-# Fallback ad SDK endpoints
-host, sdk-report.beizi.biz, reject
+# ZYSDK2 chain captured from HPOI on 2026-09-16
+host-suffix, zhangyuyidong.cn, reject
+host-suffix, hardcoresir.net, reject
+host, guanggao-prod.cn-shanghai.log.aliyuncs.com, reject
+
+# Tencent / fallback ad SDK endpoints
+host-suffix, gdt.qq.com, reject
+host-suffix, beizi.biz, reject
 host, sdk.e.qq.com, reject
-host, sdk-track.66mobi.com, reject
+host-suffix, 66mobi.com, reject
+host-suffix, litemob.net, reject
+host-suffix, bayescom.com, reject
 host-suffix, xdmssp.com, reject
 host-suffix, adbiding.com, reject
 
