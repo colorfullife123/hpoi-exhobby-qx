@@ -1,14 +1,19 @@
 # Hpoi EXHOBBY v3.3 - Quantumult X remote rewrite
 # Includes targeted HPOI startup-ad cleanup confirmed from captured traffic.
+# Ad cleanup revision: 2026-09-16.2
 # Assumes branch main and hpoi-exhobby.js at the repository root.
 # Confirm that the script URL is publicly accessible before enabling.
 # Disable the previous local Hpoi EXHOBBY/ad rules when enabling this resource.
 
-hostname = www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
+hostname = www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net, t2.fancyapi.com, pic.fancyapi.com, wcp.taobao.com, qzs.gdtimg.com, ad.toutiao.com, sdk-report.beizi.biz, sdk.e.qq.com, sdk-track.66mobi.com, sdk-stats.litemob.net, mantis.bayescom.com, ipv4.gdt.qq.com, log-api.pangolin-sdk-toutiao.com, dmp-collect.xdmssp.com, s1.adbiding.com
 
 # HPOI startup advertising
 # HPOI's own advert API shares the normal app host, so clear only this URL instead of rejecting the whole host.
 ^https://www\.hpoi\.net\.cn/api/common/advert/list(?:\?|$) url reject-dict
+
+# Cut off direct third-party bidding, creative and reporting requests used after the HPOI advert list is empty.
+^https?://pic\.fancyapi\.com/.* url reject-img
+^https?://(?:t2\.fancyapi\.com|wcp\.taobao\.com|qzs\.gdtimg\.com|ad\.toutiao\.com|sdk-report\.beizi\.biz|sdk\.e\.qq\.com|sdk-track\.66mobi\.com|sdk-stats\.litemob\.net|mantis\.bayescom\.com|ipv4\.gdt\.qq\.com|log-api\.pangolin-sdk-toutiao\.com|dmp-collect\.xdmssp\.com|s1\.adbiding\.com)/.* url reject-200
 
 # EXHOBBY native-album integration
 # Some older Safari/EXHOBBY combinations still open gallery links over HTTP.
