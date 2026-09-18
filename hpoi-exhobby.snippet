@@ -1,32 +1,32 @@
-# Hpoi EXHOBBY v3.3 - Quantumult X remote rewrite
+# Hpoi EXHOBBY v3.3.1 - Quantumult X remote rewrite
 # Includes targeted HPOI startup-ad cleanup confirmed from captured traffic.
-# Ad cleanup revision: 2026-09-16.5
+# Cold-start compatibility revision: 2026-09-18.1
 # Assumes branch main and hpoi-exhobby.js at the repository root.
 # Confirm that the script URL is publicly accessible before enabling.
 # Disable the previous local Hpoi EXHOBBY/ad rules when enabling this resource.
 
-hostname = hpoi.net.cn, www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net, t2.fancyapi.com, pic.fancyapi.com, wcp.taobao.com, qzs.gdtimg.com, ad.toutiao.com, sdk-report.beizi.biz, sdk.e.qq.com, sdk-track.66mobi.com, sdk-stats.litemob.net, mantis.bayescom.com, ipv4.gdt.qq.com, mi.gdt.qq.com, log-api.pangolin-sdk-toutiao.com, dmp-collect.xdmssp.com, s1.adbiding.com, adm.zhangyuyidong.cn, sdklog.zhangyuyidong.cn, v.adintl.cn, sswxrta.hardcoresir.net, guanggao-prod.cn-shanghai.log.aliyuncs.com
+hostname = www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 
 # HPOI startup advertising
 # HPOI's own advert API shares the normal app host, so clear only this URL instead of rejecting the whole host.
-^https://(?:www\.)?hpoi\.net\.cn/api/common/advert/list(?:\?|$) url reject-dict
+^https://www\.hpoi\.net\.cn/api/common/advert/list(?:\?|$) url reject-dict
 
 # Hide Taobao-related products below item details while keeping normal item data and image CDNs untouched.
-^https://(?:www\.)?hpoi\.net\.cn/api/hobby/amazonPrice(?:\?|$) url reject-dict
+^https://www\.hpoi\.net\.cn/api/hobby/amazonPrice(?:\?|$) url reject-dict
 
 # Current HPOI builds fetch Taobao cards from /api/goods/tb/more-v2; clear only the Taobao goods API family.
-^https://(?:www\.)?hpoi\.net\.cn/api/goods/tb/[^?]+(?:\?|$) url reject-dict
+^https://www\.hpoi\.net\.cn/api/goods/tb/[^?]+(?:\?|$) url reject-dict
 
-# Cut off direct third-party bidding, creative, exposure and reporting requests used by HPOI ad SDKs.
-^https?://pic\.fancyapi\.com/.* url reject-img
-^https?://(?:t2\.fancyapi\.com|wcp\.taobao\.com|qzs\.gdtimg\.com|ad\.toutiao\.com|sdk-report\.beizi\.biz|sdk\.e\.qq\.com|sdk-track\.66mobi\.com|sdk-stats\.litemob\.net|mantis\.bayescom\.com|ipv4\.gdt\.qq\.com|mi\.gdt\.qq\.com|log-api\.pangolin-sdk-toutiao\.com|dmp-collect\.xdmssp\.com|s1\.adbiding\.com|adm\.zhangyuyidong\.cn|sdklog\.zhangyuyidong\.cn|v\.adintl\.cn|sswxrta\.hardcoresir\.net|guanggao-prod\.cn-shanghai\.log\.aliyuncs\.com)/.* url reject-200
+# Do not MITM third-party ad SDK hosts or answer them with an empty HTTP 200.
+# Some SDK cold-start paths treat an empty successful response as valid data and crash while parsing it.
+# Block those hosts at the filter layer with hpoi-ads-filter.list instead.
 
 # EXHOBBY native-album integration
 # Some older Safari/EXHOBBY combinations still open gallery links over HTTP.
 # 307 preserves POST and its pagination body while upgrading transport security.
 ^http://www\.exhobby\.net/(.*) url 307 https://www.exhobby.net/$1
-^https://www\.exhobby\.net/picture(?:\?|/\d+(?:\?|$)) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js?v=3.3.0
-^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-request-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js?v=3.3.0
-^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js?v=3.3.0
+^https://www\.exhobby\.net/picture(?:\?|/\d+(?:\?|$)) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js?v=3.3.1
+^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-request-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js?v=3.3.1
+^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js?v=3.3.1
 ^https://rfx\.hpoi\.net/[^?]*__exhobby__/cover-v3\.2\.png[^?]*(?:\?.*)?$ url 302 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/assets/exhobby-cover-v3.2.png
 ^https://rfx\.hpoi\.net/[^?]*__exhobby__/([^?]+)(?:\?.*)?$ url 302 https://res.e39x.com/pic/n/$1

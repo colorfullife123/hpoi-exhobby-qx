@@ -2,7 +2,14 @@
 
 在 Hpoi iOS App 的手办词条相册列表中添加「EXHOBBY 相册」入口，点击后通过 Hpoi 原生相册查看图片。
 
-当前版本：**v3.3**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。外层详情页只添加相册入口，不插入预览图片网格。EXHOBBY 相册列表使用单独设计的标识封面，进入相册后仍显示各词条自己的图库图片。
+当前版本：**v3.3.1**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。外层详情页只添加相册入口，不插入预览图片网格。EXHOBBY 相册列表使用单独设计的标识封面，进入相册后仍显示各词条自己的图库图片。
+
+## v3.3.1 冷启动兼容修复
+
+- 修复开启 Quantumult X 时 Hpoi 冷启动闪退、必须先关闭圈叉进入一次才能恢复的问题。
+- 第三方广告 SDK 域名不再加入 MITM，也不再返回正文为空的 `HTTP 200`；这些域名只在 `hpoi-ads-filter.list` 的分流层拒绝。
+- `hpoi.net.cn` 与 `hpoi.net` 在 Hpoi 广告过滤列表中固定直连，避免落入全局代理规则。
+- 保留 EXHOBBY 原生相册、Hpoi 自家开屏广告接口清空，以及词条下方淘宝关联商品清空。
 
 ## v3.3 更新
 
@@ -35,7 +42,7 @@
 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.snippet, tag=HPOI_EXHOBBY, enabled=true
 ```
 
-保存并更新远程资源，确认资源成功加载七条重写规则。该订阅会通过带 `v=3.3.0` 标记的地址引用仓库 JavaScript，避免继续使用旧脚本缓存；同时引用 `assets/exhobby-cover-v3.2.png`，无需额外保存同名本地脚本。
+保存并更新远程资源，确认资源成功加载九条重写规则。该订阅会通过带 `v=3.3.1` 标记的地址引用仓库 JavaScript，避免继续使用旧脚本缓存；同时引用 `assets/exhobby-cover-v3.2.png`，无需额外保存同名本地脚本。
 
 如果通过圈叉的重写资源界面添加，资源地址填写上面的订阅链接。配置行用于 `[rewrite_remote]`，不要把仓库首页链接或 JS 文件链接当作重写订阅地址。
 
@@ -50,6 +57,15 @@ www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 ```
 
 远程订阅已包含这三个 `hostname`。原来手动添加的相同域名可以保留；若域名尚未生效，将它们追加到现有 `[mitm]` 的 `hostname` 列表，保留其他项目需要的域名。
+
+不要把 `fancyapi.com`、`gdt.qq.com`、`pangolin-sdk-toutiao.com`、`zhangyuyidong.cn` 等第三方广告 SDK 域名加入 MITM。圈叉官方定义的 `reject-200` 是“HTTP 200 且正文为空”，部分广告 SDK 会把它当成有效响应继续解析，导致 Hpoi 在没有缓存的冷启动阶段闪退。
+
+如果同时订阅 `hpoi-ads-filter.list`，更新后确认资源顶部包含以下两条直连规则：
+
+```ini
+host-suffix, hpoi.net.cn, direct
+host-suffix, hpoi.net, direct
+```
 
 **从本地规则切换过来时，只停用本项目旧的本地重写，MITM 保持开启。** 同时停用旧版 Hpoi 预览图重写、`hpoi-diag.js` 和 `exhobby-page-diag.js` 诊断规则，避免同一响应被重复处理。
 
