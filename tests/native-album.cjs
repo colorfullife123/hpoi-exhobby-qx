@@ -3,7 +3,7 @@ const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('ass
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
 assert(script.startsWith('// Hpoi + EXHOBBY native album v3.3'));
-assert.equal(pkg.version,'3.3.0');
+assert.equal(pkg.version,'3.3.1');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
@@ -164,8 +164,8 @@ const unwrap=r=>JSON.parse(r.body).data;
   assert(upgrade>=0&&capture>upgrade,file+' must upgrade HTTP before HTTPS session capture');
   if(file==='hpoi-exhobby.snippet'){
    const remoteScripts=rules.filter(line=>line.includes('url script-'));
-   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.3.0')),
-    'remote scripts must bypass the v3.2 URL cache');
+   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.3.1')),
+    'remote scripts must bypass the prior URL cache');
   }
   const [upgradeSource,upgradeTarget]=rules[upgrade].split(' url 307 ');
   const upgradePattern=new RegExp(upgradeSource);
@@ -182,6 +182,15 @@ const unwrap=r=>JSON.parse(r.body).data;
   assert(pattern.test('https://rfx.hpoi.net/pic/s/__exhobby__/cover-v3.2.png/120x120'));
   assert(!pattern.test('https://rfx.hpoi.net/pic/s/__exhobby__/2026/09/photo.jpg'));
  }
+ const remoteConfig=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.snippet'),'utf8');
+ assert(!remoteConfig.includes('reject-200'),
+  'third-party ad SDKs must not receive empty successful responses during cold start');
+ const mitmLine=remoteConfig.split('\n').find(line=>line.startsWith('hostname = '));
+ assert.equal(mitmLine,'hostname = www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net',
+  'MITM must stay limited to the three hosts required by the native album integration');
+ const adFilter=fs.readFileSync(path.join(__dirname,'..','hpoi-ads-filter.list'),'utf8');
+ assert(adFilter.includes('host-suffix, hpoi.net.cn, direct'));
+ assert(adFilter.includes('host-suffix, hpoi.net, direct'));
  const cover=fs.readFileSync(path.join(__dirname,'..','assets/exhobby-cover-v3.2.png'));
  assert.equal(cover.subarray(0,8).toString('hex'),'89504e470d0a1a0a','cover is a PNG');
  console.log('PASS: concurrent/out-of-order entries, separate caches and covers, native album/photo navigation, and pagination tails.');
@@ -189,4 +198,5 @@ const unwrap=r=>JSON.parse(r.body).data;
   console.log('PASS: all-entry browser capture preserves age checks; no Hpoi credentials forwarded or logged.');
   console.log('PASS: age reminders, accepted old cookies, notification cooldown, saved gallery links and optional Bark privacy.');
   console.log('PASS: v3.3 upgrades legacy HTTP gallery URLs with POST-preserving 307 rules before session capture.');
+  console.log('PASS: v3.3.1 keeps third-party ad SDK hosts out of MITM and HPOI core hosts direct.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
