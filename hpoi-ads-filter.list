@@ -1,11 +1,9 @@
 # HPOI startup-ad filter rules for Quantumult X
-# Updated 2026-09-18 for cold-start compatibility.
+# Updated 2026-09-19 for cold-start compatibility.
 # Keep HPOI's own advert/product API handling in rewrite, because hpoi.net.cn also serves normal app APIs.
 # Do not reject hpoi.net.cn, rfx.hpoi.net, img.alicdn.com, user.jpush.cn, or umeng.com.
-# Keep HPOI's own API and image hosts direct so a catch-all proxy rule cannot break cold launch.
-
-host-suffix, hpoi.net.cn, direct
-host-suffix, hpoi.net, direct
+# This resource may be subscribed with force-policy=reject, which overrides every rule's policy.
+# Put any HPOI direct rules in [filter_local], never in this ad-blocking subscription.
 
 # Original HPOI ad endpoints
 host-suffix, adintl.cn, reject

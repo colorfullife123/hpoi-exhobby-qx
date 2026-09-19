@@ -8,7 +8,7 @@
 
 - 修复开启 Quantumult X 时 Hpoi 冷启动闪退、必须先关闭圈叉进入一次才能恢复的问题。
 - 第三方广告 SDK 域名不再加入 MITM，也不再返回正文为空的 `HTTP 200`；这些域名只在 `hpoi-ads-filter.list` 的分流层拒绝。
-- `hpoi.net.cn` 与 `hpoi.net` 在 Hpoi 广告过滤列表中固定直连，避免落入全局代理规则。
+- 广告过滤订阅只包含第三方广告域名；需要直连 Hpoi 时，在 `[filter_local]` 单独设置 `hpoi.net.cn` 和 `hpoi.net`。
 - 保留 EXHOBBY 原生相册、Hpoi 自家开屏广告接口清空，以及词条下方淘宝关联商品清空。
 
 ## v3.3 更新
@@ -60,12 +60,16 @@ www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 
 不要把 `fancyapi.com`、`gdt.qq.com`、`pangolin-sdk-toutiao.com`、`zhangyuyidong.cn` 等第三方广告 SDK 域名加入 MITM。圈叉官方定义的 `reject-200` 是“HTTP 200 且正文为空”，部分广告 SDK 会把它当成有效响应继续解析，导致 Hpoi 在没有缓存的冷启动阶段闪退。
 
-如果同时订阅 `hpoi-ads-filter.list`，更新后确认资源顶部包含以下两条直连规则：
+**如果使用了旧版 `hpoi-ads-filter.list`，立即更新该远程资源。** 旧版将以下两条直连规则放在广告订阅里；若订阅行带 `force-policy=reject`，圈叉会把它们也改为拒绝，导致 Hpoi 无法连接服务器。新版广告订阅已移除直连规则。
+
+需要固定直连 Hpoi 时，将以下两条规则加入现有配置的 `[filter_local]`，放在宽泛的代理／拒绝规则之前：
 
 ```ini
 host-suffix, hpoi.net.cn, direct
 host-suffix, hpoi.net, direct
 ```
+
+如果更新远程资源前 Hpoi 已经无法连接，先暂时停用 `HPOI_ADS` 过滤订阅，确认恢复后再更新并开启。刷新后检查 `hpoi-ads-filter.list` 中不再含有 `hpoi.net.cn`／`hpoi.net` 规则。
 
 **从本地规则切换过来时，只停用本项目旧的本地重写，MITM 保持开启。** 同时停用旧版 Hpoi 预览图重写、`hpoi-diag.js` 和 `exhobby-page-diag.js` 诊断规则，避免同一响应被重复处理。
 
