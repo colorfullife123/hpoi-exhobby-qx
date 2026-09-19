@@ -189,8 +189,8 @@ const unwrap=r=>JSON.parse(r.body).data;
  assert.equal(mitmLine,'hostname = www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net',
   'MITM must stay limited to the three hosts required by the native album integration');
  const adFilter=fs.readFileSync(path.join(__dirname,'..','hpoi-ads-filter.list'),'utf8');
- assert(adFilter.includes('host-suffix, hpoi.net.cn, direct'));
- assert(adFilter.includes('host-suffix, hpoi.net, direct'));
+ assert(!adFilter.split('\n').some(line=>/^host(?:-suffix)?,\s*(?:hpoi\.net\.cn|hpoi\.net),/i.test(line)),
+  'HPOI hosts must not be in the ad subscription: force-policy=reject would block them');
  const cover=fs.readFileSync(path.join(__dirname,'..','assets/exhobby-cover-v3.2.png'));
  assert.equal(cover.subarray(0,8).toString('hex'),'89504e470d0a1a0a','cover is a PNG');
  console.log('PASS: concurrent/out-of-order entries, separate caches and covers, native album/photo navigation, and pagination tails.');
@@ -198,5 +198,5 @@ const unwrap=r=>JSON.parse(r.body).data;
   console.log('PASS: all-entry browser capture preserves age checks; no Hpoi credentials forwarded or logged.');
   console.log('PASS: age reminders, accepted old cookies, notification cooldown, saved gallery links and optional Bark privacy.');
   console.log('PASS: v3.3 upgrades legacy HTTP gallery URLs with POST-preserving 307 rules before session capture.');
-  console.log('PASS: v3.3.1 keeps third-party ad SDK hosts out of MITM and HPOI core hosts direct.');
+  console.log('PASS: v3.3.1 keeps third-party ad SDK hosts out of MITM and HPOI core hosts out of force-policy=reject subscriptions.');
 })().catch(e=>{console.error(e);process.exitCode=1;});
