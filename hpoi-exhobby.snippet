@@ -8,8 +8,9 @@
 hostname = www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 
 # HPOI startup advertising
-# HPOI's own advert API shares the normal app host, so clear only this URL instead of rejecting the whole host.
-^https://www\.hpoi\.net\.cn/api/common/advert/list(?:\?|$) url reject-dict
+# Preserve the server's JSON envelope and only empty arrays inside the advert payload.
+# The sanitizer fails open if the response is malformed or its structure is unknown.
+^https://www\.hpoi\.net\.cn/api/common/advert/list(?:\?|$) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-ad-sanitize.js?v=3.3.2
 
 # Hide Taobao-related products below item details while keeping normal item data and image CDNs untouched.
 ^https://www\.hpoi\.net\.cn/api/hobby/amazonPrice(?:\?|$) url reject-dict
