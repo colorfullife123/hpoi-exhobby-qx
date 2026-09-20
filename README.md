@@ -2,7 +2,14 @@
 
 在 Hpoi iOS App 的手办词条相册列表中添加「EXHOBBY 相册」入口，点击后通过 Hpoi 原生相册查看图片。
 
-当前版本：**v3.3.2**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。外层详情页只添加相册入口，不插入预览图片网格。EXHOBBY 相册列表使用单独设计的标识封面，进入相册后仍显示各词条自己的图库图片。
+当前版本：**v3.3.3**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。外层详情页只添加相册入口，不插入预览图片网格。EXHOBBY 相册列表使用单独设计的标识封面，进入相册后仍显示各词条自己的图库图片。
+
+## v3.3.3 原生相册字段兼容修复
+
+- 修复 Hpoi 在打开 EXHOBBY 虚拟相册时，原生 `/api/album/detail` 等请求可能由 `id` 改用 `itemId`，导致脚本报 `unrecognized native album request field: itemId` 的问题。
+- 当正常 Hpoi 相册模板和虚拟相册请求使用不同 ID 字段名时，脚本现在会使用模板中的真实安全 ID 对虚拟字段进行重映射，再在响应阶段替换为 EXHOBBY 相册内容。
+- 虚拟的 10 亿级相册 ID 和图片合成 ID 不再因为字段名变化而直接落到 Hpoi 后端，从而避免 App 显示“相册不存在”。
+- 新增 `itemId` 字段变体回归测试；远程主脚本 URL 提升为 `v=3.3.3` 以绕过 Quantumult X 旧缓存。
 
 ## v3.3.2 冷启动稳定性修复
 
@@ -50,7 +57,7 @@
 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.snippet, tag=HPOI_EXHOBBY, enabled=true
 ```
 
-保存并更新远程资源，确认资源成功加载九条重写规则。该订阅会通过带 `v=3.3.2` 标记的地址引用仓库 JavaScript，避免继续使用旧脚本缓存；同时引用 `assets/exhobby-cover-v3.2.png`，无需额外保存同名本地脚本。
+保存并更新远程资源，确认资源成功加载九条重写规则。EXHOBBY 主脚本使用带 `v=3.3.3` 标记的地址，避免继续使用旧脚本缓存；开屏广告清理脚本仍可使用其独立缓存版本。订阅同时引用 `assets/exhobby-cover-v3.2.png`，无需额外保存同名本地脚本。
 
 如果通过圈叉的重写资源界面添加，资源地址填写上面的订阅链接。配置行用于 `[rewrite_remote]`，不要把仓库首页链接或 JS 文件链接当作重写订阅地址。
 
@@ -130,6 +137,8 @@ host-suffix, hpoi.net, direct
 从远程 v3.2 升级时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源。确认资源中新增的 HTTP `307` 规则排在 HTTPS 会话捕获规则之前；不需要重新上传或改名 `assets/exhobby-cover-v3.2.png`。
 
 从 v3.1 或更早版本升级时，仍需确认主脚本、两份重写配置以及 `assets/exhobby-cover-v3.2.png` 都已在仓库中；封面规则必须排在 EXHOBBY 图片通用跳转规则之前。
+
+从 v3.3.2 升级到 v3.3.3 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源。更新后主脚本地址应带 `hpoi-exhobby.js?v=3.3.3`；无需清除已经抓取的 EXHOBBY 图库缓存或重新做年龄验证。若之前出现 `unrecognized native album request field: itemId`，更新后直接重新打开对应词条和相册即可。
 
 从 v3.3.1 升级到 v3.3.2 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源。确认 `/api/common/advert/list` 已变为 `script-response-body .../hpoi-ad-sanitize.js?v=3.3.2`，不再出现 `url reject-dict`。随后从后台彻底结束 Hpoi，在圈叉保持开启的情况下重新冷启动。
 
