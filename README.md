@@ -2,7 +2,15 @@
 
 在 Hpoi iOS App 的手办词条相册列表中添加「EXHOBBY 相册」入口，点击后通过 Hpoi 原生相册查看图片。
 
-当前版本：**v3.3.1**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。外层详情页只添加相册入口，不插入预览图片网格。EXHOBBY 相册列表使用单独设计的标识封面，进入相册后仍显示各词条自己的图库图片。
+当前版本：**v3.3.2**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。外层详情页只添加相册入口，不插入预览图片网格。EXHOBBY 相册列表使用单独设计的标识封面，进入相册后仍显示各词条自己的图库图片。
+
+## v3.3.2 冷启动稳定性修复
+
+- Hpoi 自家开屏广告接口 `/api/common/advert/list` 不再使用 `reject-dict` 强制替换为 `{}`。
+- 新增 `hpoi-ad-sanitize.js`：保留服务器原有 JSON 外层结构，只把广告响应中的数组清空，避免 App 冷启动仍按原字段读取时发生闪退。
+- 新脚本采用 **fail-open**：响应不是合法 JSON、没有可安全清理的数组或后端结构发生未知变化时，直接返回原始响应，优先保证 Hpoi 能启动。
+- EXHOBBY 相册逻辑、淘宝关联商品清理和 MITM 域名保持不变。
+- 升级后请在 Quantumult X 中手动更新 `HPOI_EXHOBBY` 远程重写资源，再从后台彻底结束 Hpoi 后进行冷启动测试。
 
 ## v3.3.1 冷启动兼容修复
 
@@ -42,7 +50,7 @@
 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.snippet, tag=HPOI_EXHOBBY, enabled=true
 ```
 
-保存并更新远程资源，确认资源成功加载九条重写规则。该订阅会通过带 `v=3.3.1` 标记的地址引用仓库 JavaScript，避免继续使用旧脚本缓存；同时引用 `assets/exhobby-cover-v3.2.png`，无需额外保存同名本地脚本。
+保存并更新远程资源，确认资源成功加载九条重写规则。该订阅会通过带 `v=3.3.2` 标记的地址引用仓库 JavaScript，避免继续使用旧脚本缓存；同时引用 `assets/exhobby-cover-v3.2.png`，无需额外保存同名本地脚本。
 
 如果通过圈叉的重写资源界面添加，资源地址填写上面的订阅链接。配置行用于 `[rewrite_remote]`，不要把仓库首页链接或 JS 文件链接当作重写订阅地址。
 
@@ -123,13 +131,15 @@ host-suffix, hpoi.net, direct
 
 从 v3.1 或更早版本升级时，仍需确认主脚本、两份重写配置以及 `assets/exhobby-cover-v3.2.png` 都已在仓库中；封面规则必须排在 EXHOBBY 图片通用跳转规则之前。
 
+从 v3.3.1 升级到 v3.3.2 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源。确认 `/api/common/advert/list` 已变为 `script-response-body .../hpoi-ad-sanitize.js?v=3.3.2`，不再出现 `url reject-dict`。随后从后台彻底结束 Hpoi，在圈叉保持开启的情况下重新冷启动。
+
 仓库脚本更新后，在圈叉中更新远程资源，并查看运行日志里的版本号确认实际加载的版本。GitHub 文件修改不等于设备已经更新，远程脚本缓存也可能需要刷新。
 
 只有日志提示模板缺失或会话失效时，才重新执行相应的初始化步骤。已保存的浏览器 Cookie 会在网站仍接受时继续复用，网站要求再次验证时才提醒。
 
 ## 本地安装（备选）
 
-如果需要使用本地文件，将 [`hpoi-exhobby.js`](hpoi-exhobby.js) 保存为 Quantumult X 可识别的本地脚本，并将 [`hpoi-exhobby.local.conf`](hpoi-exhobby.local.conf) 中的规则合并到现有 `[rewrite_local]` 段，同时保留上述 MITM 设置。标识封面通过公开 Raw 链接加载，图片资产仍需上传到仓库。
+如果需要使用本地文件，将 [`hpoi-exhobby.js`](hpoi-exhobby.js) 和 [`hpoi-ad-sanitize.js`](hpoi-ad-sanitize.js) 保存为 Quantumult X 可识别的本地脚本，并将 [`hpoi-exhobby.local.conf`](hpoi-exhobby.local.conf) 中的规则合并到现有 `[rewrite_local]` 段，同时保留上述 MITM 设置。标识封面通过公开 Raw 链接加载，图片资产仍需上传到仓库。
 
 本地配置文件是配置片段，不要用它覆盖整份圈叉配置。本地和远程两种安装方式选择一种，避免两套规则同时执行。
 
@@ -143,12 +153,14 @@ host-suffix, hpoi.net, direct
 | --- | --- |
 | `README.md` | 安装、使用和排错说明 |
 | `hpoi-exhobby.js` | Quantumult X 主脚本 |
+| `hpoi-ad-sanitize.js` | Hpoi 开屏广告结构保持型响应清理脚本 |
 | `bark-setup.example.js` | 可选的一次性 Bark 本地配置模板；不要上传含个人密钥的副本 |
 | `hpoi-exhobby.snippet` | 远程重写订阅，引用主脚本并声明 MITM 域名 |
 | `hpoi-exhobby.local.conf` | 本地安装配置片段 |
 | `assets/exhobby-cover-v3.2.png` | 本项目原创的 EXHOBBY 相册列表标识封面 |
 | `package.json` | 离线检查与测试命令 |
-| `tests/native-album.cjs` | 离线模拟测试 |
+| `tests/native-album.cjs` | EXHOBBY 原生相册离线模拟测试 |
+| `tests/ad-sanitize.cjs` | Hpoi 开屏广告响应清理离线测试 |
 
 上传压缩包时先解压，保持目录结构。主脚本和订阅文件应在仓库根目录；封面图应在 `assets` 文件夹，测试文件应放在 **`tests` 文件夹，末尾带 s**。
 

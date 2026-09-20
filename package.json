@@ -1,11 +1,11 @@
 {
   "name": "hpoi-exhobby-qx",
-  "version": "3.3.1",
+  "version": "3.3.2",
   "private": true,
   "description": "EXHOBBY native album integration for Hpoi iOS through Quantumult X",
   "license": "MIT",
   "scripts": {
-    "check": "node --check hpoi-exhobby.js",
-    "test": "node tests/native-album.cjs"
+    "check": "node --check hpoi-exhobby.js && node --check hpoi-ad-sanitize.js",
+    "test": "node tests/native-album.cjs && node tests/ad-sanitize.cjs"
   }
 }

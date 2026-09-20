@@ -1,6 +1,6 @@
-# Hpoi EXHOBBY v3.3.1 - Quantumult X remote rewrite
+# Hpoi EXHOBBY v3.3.2 - Quantumult X remote rewrite
 # Includes targeted HPOI startup-ad cleanup confirmed from captured traffic.
-# Cold-start compatibility revision: 2026-09-18.1
+# Cold-start compatibility revision: 2026-09-20.1
 # Assumes branch main and hpoi-exhobby.js at the repository root.
 # Confirm that the script URL is publicly accessible before enabling.
 # Disable the previous local Hpoi EXHOBBY/ad rules when enabling this resource.
@@ -25,8 +25,8 @@ hostname = www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 # Some older Safari/EXHOBBY combinations still open gallery links over HTTP.
 # 307 preserves POST and its pagination body while upgrading transport security.
 ^http://www\.exhobby\.net/(.*) url 307 https://www.exhobby.net/$1
-^https://www\.exhobby\.net/picture(?:\?|/\d+(?:\?|$)) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js?v=3.3.1
-^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-request-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js?v=3.3.1
-^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js?v=3.3.1
+^https://www\.exhobby\.net/picture(?:\?|/\d+(?:\?|$)) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js?v=3.3.2
+^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-request-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js?v=3.3.2
+^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js?v=3.3.2
 ^https://rfx\.hpoi\.net/[^?]*__exhobby__/cover-v3\.2\.png[^?]*(?:\?.*)?$ url 302 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/assets/exhobby-cover-v3.2.png
 ^https://rfx\.hpoi\.net/[^?]*__exhobby__/([^?]+)(?:\?.*)?$ url 302 https://res.e39x.com/pic/n/$1
