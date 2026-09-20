@@ -2,8 +2,8 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
-assert(script.startsWith('// Hpoi + EXHOBBY native album v3.3'));
-assert.equal(pkg.version,'3.3.1');
+assert(script.startsWith('// Hpoi + EXHOBBY native album v3.3.3'));
+assert.equal(pkg.version,'3.3.3');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
@@ -81,6 +81,13 @@ const unwrap=r=>JSON.parse(r.body).data;
  let detail=unwrap(await h.rt('album/detail','id='+(1000000000+A),{success:true,data:{album:seedAlbum}}));
  assert.equal(detail.album.picCount,45);
  assert.equal(detail.album.cover,'/__exhobby__/cover-v3.2.png');
+ const itemIdDetailJob=await h.begin('album/detail','itemId='+(1000000000+A)+'&itemType=album');
+ const remappedDetailParams=new URLSearchParams(itemIdDetailJob.mapped.body);
+ assert.equal(remappedDetailParams.get('itemId'),'214102','virtual itemId is remapped through the normal album template ID');
+ assert.equal(remappedDetailParams.get('id'),'214102','normal template id is preserved for backend compatibility');
+ detail=unwrap(await h.end(itemIdDetailJob,{success:true,data:{album:seedAlbum}}));
+ assert.equal(detail.album.picCount,45,'album/detail accepts virtual itemId field variants');
+ assert(!h.logs.some(line=>line.includes('unrecognized native album request field')),'field variants must not fall through to Hpoi');
  detail=unwrap(await h.rt('item/get','id='+pa[0].id,{success:true,data:{itemData:{}}}));
  assert.equal(detail.itemData.path,pa[0].pictureInfo.path,'photo details stay with A after visiting B');
  assert.equal(JSON.stringify(await h.rt('album/detail','id=214102',{success:true,data:{album:seedAlbum}})),'{}');
@@ -163,9 +170,9 @@ const unwrap=r=>JSON.parse(r.body).data;
   const capture=rules.findIndex(line=>line.includes('url script-response-body')&&line.includes('www\\.exhobby\\.net/picture'));
   assert(upgrade>=0&&capture>upgrade,file+' must upgrade HTTP before HTTPS session capture');
   if(file==='hpoi-exhobby.snippet'){
-   const remoteScripts=rules.filter(line=>line.includes('url script-'));
-   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.3.1')),
-    'remote scripts must bypass the prior URL cache');
+   const remoteScripts=rules.filter(line=>line.includes('url script-')&&line.includes('hpoi-exhobby.js'));
+   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.3.3')),
+    'remote EXHOBBY scripts must bypass the prior URL cache');
   }
   const [upgradeSource,upgradeTarget]=rules[upgrade].split(' url 307 ');
   const upgradePattern=new RegExp(upgradeSource);
