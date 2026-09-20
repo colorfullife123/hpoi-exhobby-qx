@@ -1,4 +1,4 @@
-// Hpoi + EXHOBBY native album v3.3 — Quantumult X
+// Hpoi + EXHOBBY native album v3.3.3 — Quantumult X
 // Automatically handles hobby entries with an EXHOBBY gallery.
 // Reuses the browser session and native templates saved by v2.3.
 // No Hpoi token is stored or sent to EXHOBBY.
@@ -633,12 +633,23 @@
       if (v) {
         var seed = read("seed:" + endpoint);
         if (!seed || !seed.p) throw new Error("open a normal Hpoi album first");
-        var changes = {};
-        Object.keys(seed.p).forEach(function (k) { changes[k] = seed.p[k]; });
+        var changes = {}, safeId = "";
+        Object.keys(seed.p).forEach(function (k) {
+          changes[k] = seed.p[k];
+          if (!safeId && ID_FIELDS.indexOf(k) >= 0) {
+            var candidate = Number(seed.p[k]);
+            if (Number.isInteger(candidate) && candidate > 0 && candidate < ALBUM_BASE) {
+              safeId = String(seed.p[k]);
+            }
+          }
+        });
         if (endpoint === "pic/list/relate-v2") changes.page = "1";
         ID_FIELDS.forEach(function (k) {
-          if (p[k] && !changes[k] && (Number(p[k]) === ALBUM || Number(p[k]) > PIC_BASE)) {
-            throw new Error("unrecognized native album request field: " + k);
+          var nativeId = Number(p[k]);
+          if (p[k] && (nativeId === ALBUM || nativeId > PIC_BASE) && !changes[k]) {
+            if (!safeId) throw new Error("native album template has no safe ID field");
+            changes[k] = safeId;
+            log("v3.3.3 remap request field " + k + " via template ID");
           }
         });
         output = changeRequest(changes);
