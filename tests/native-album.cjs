@@ -2,8 +2,8 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
-assert(script.startsWith('// Hpoi + EXHOBBY native album v3.5.1'));
-assert.equal(pkg.version,'3.5.1');
+assert(script.startsWith('// Hpoi + EXHOBBY native album v3.5.2'));
+assert.equal(pkg.version,'3.5.2');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
@@ -91,6 +91,15 @@ const unwrap=r=>JSON.parse(r.body).data;
  assert.equal(pa.length,20);assert.equal(pb.length,20);
  assert(pa.every(row=>row.subType===7),
    'EXHOBBY rows preserve native outer-row fields such as subType');
+ // A later native response without subType must not downgrade the saved row template.
+ await h.rt('pic/list/relate-v2','itemId=214999&itemType=album&page=1&pageSize=20',
+   {success:true,data:{list:[{id:777,rank:1,pictureInfo:{id:777,itemId:778,itemType:'pic',path:'later.jpg'}}]}});
+ const preservedSeed=JSON.parse(h.prefs.get(NS+'seed:pic/list/relate-v2'));
+ assert.equal(preservedSeed.row.subType,7,
+   'later rows missing subType must preserve the previously learned subtype');
+ const paAfter=await pics(A,1);
+ assert(paAfter.every(row=>row.subType===7),
+   'EXHOBBY rows keep rendering metadata after template refreshes');
  assert.notEqual(pa[0].id,pb[0].id,'different gallery first photos cannot reuse native IDs');
  assert.equal((await pics(A,3)).length,5);assert.equal((await pics(B,2)).length,7);
  assert.equal((await pics(B,3)).length,0);
@@ -203,7 +212,7 @@ const unwrap=r=>JSON.parse(r.body).data;
   assert(upgrade>=0&&capture>upgrade,file+' must upgrade HTTP before HTTPS session capture');
   if(file==='hpoi-exhobby.snippet'){
    const remoteScripts=rules.filter(line=>line.includes('url script-')&&line.includes('hpoi-exhobby.js'));
-   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.5.1')),
+   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.5.2')),
     'remote EXHOBBY scripts must bypass the prior URL cache');
   }
   const [upgradeSource,upgradeTarget]=rules[upgrade].split(' url 307 ');
