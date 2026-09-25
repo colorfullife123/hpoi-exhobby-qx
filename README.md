@@ -2,7 +2,15 @@
 
 在 Hpoi iOS App 的手办词条相册列表中添加「EXHOBBY 相册」入口，点击后通过 Hpoi 原生相册查看图片。
 
-当前版本：**v3.4.3**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。每个词条只新增一个独立「EXHOBBY 相册」入口；全部 EXHOBBY 图片只显示在这个专用相册中，普通 Hpoi 相册保持原样。
+当前版本：**v3.4.4**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。每个词条只新增一个独立「EXHOBBY 相册」入口；全部 EXHOBBY 图片只显示在这个专用相册中，普通 Hpoi 相册保持原样。
+
+## v3.4.4 部分相册“相册不存在”修复
+
+- 修复 v3.4.3 借用真实 Hpoi 相册路由时，把 `id / itemId / albumId` 全部改成代理 ID，导致部分相册内部 ID 语义被破坏的问题。
+- 现在会根据已采集的正常 `album/detail` 与 `pic/list/relate-v2` 请求模板自动识别真正承担导航的字段。
+- 只代理实际路由字段；相册对象自身 `id`、关联 ID 等非路由字段保持 Hpoi 原值。
+- EXHOBBY 专用入口同样保留原生相册对象结构，只接管真实导航字段，因此不同结构的相册兼容性更高。
+- 已有 v3.4.3 的代理记录会在再次打开词条相册列表时自动刷新，无需清空全部缓存。
 
 ## v3.4.3 独立 EXHOBBY 入口
 
@@ -92,7 +100,7 @@
 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.snippet, tag=HPOI_EXHOBBY, enabled=true
 ```
 
-保存并更新远程资源，确认资源成功加载九条重写规则。EXHOBBY 主脚本使用带 `v=3.4.3` 标记的地址，避免继续使用旧脚本缓存；开屏广告清理脚本仍可使用其独立缓存版本。旧标识封面资产仅为兼容 v3.4.1 缓存保留，v3.4.3 不再把它插入任何相册。
+保存并更新远程资源，确认资源成功加载九条重写规则。EXHOBBY 主脚本使用带 `v=3.4.4` 标记的地址，避免继续使用旧脚本缓存；开屏广告清理脚本仍可使用其独立缓存版本。旧标识封面资产仅为兼容 v3.4.1 缓存保留，v3.4.3 不再把它插入任何相册。
 
 如果通过圈叉的重写资源界面添加，资源地址填写上面的订阅链接。配置行用于 `[rewrite_remote]`，不要把仓库首页链接或 JS 文件链接当作重写订阅地址。
 
@@ -173,6 +181,8 @@ host-suffix, hpoi.net, direct
 
 从 v3.1 或更早版本升级时，仍需确认主脚本、两份重写配置以及 `assets/exhobby-cover-v3.2.png` 都已在仓库中；封面规则必须排在 EXHOBBY 图片通用跳转规则之前。
 
+从 v3.4.3 升级到 v3.4.4 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源，确认主脚本地址带 `hpoi-exhobby.js?v=3.4.4`。建议更新后重新进入出现过“相册不存在”的词条一次，让该词条的真实路由与代理记录按新规则刷新；不需要清除 EXHOBBY 图库缓存或重新做年龄验证。
+
 从 v3.4.2 升级到 v3.4.3 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源。确认主脚本地址带 `hpoi-exhobby.js?v=3.4.3`，再彻底结束 Hpoi 并重新打开。已有图库缓存、原生相册模板和浏览器验证会话都会保留；升级后 EXHOBBY 图片只出现在独立入口，普通 Hpoi 相册恢复原内容。
 
 从 v3.4.1 升级到 v3.4.2 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源。确认主脚本地址带 `hpoi-exhobby.js?v=3.4.2`，再彻底结束 Hpoi 并重新打开。已有图库缓存、普通相册映射和浏览器验证会话都会保留；普通相册内不再显示 EXHOBBY 封面项。
@@ -195,7 +205,7 @@ host-suffix, hpoi.net, direct
 
 本地配置文件是配置片段，不要用它覆盖整份圈叉配置。本地和远程两种安装方式选择一种，避免两套规则同时执行。
 
-脚本原文地址：[hpoi-exhobby.js](https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js)。当前脚本以 `// Hpoi + EXHOBBY native album v3.4.3` 开头；`Unsupported Media Type`、HTML 错误页和 Markdown 代码围栏都不能作为 JavaScript 保存。
+脚本原文地址：[hpoi-exhobby.js](https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js)。当前脚本以 `// Hpoi + EXHOBBY native album v3.4.4` 开头；`Unsupported Media Type`、HTML 错误页和 Markdown 代码围栏都不能作为 JavaScript 保存。
 
 ## 仓库文件与维护
 
