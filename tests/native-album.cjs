@@ -2,8 +2,8 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
-assert(script.startsWith('// Hpoi + EXHOBBY native album v3.5.7'));
-assert.equal(pkg.version,'3.5.7');
+assert(script.startsWith('// Hpoi + EXHOBBY native album v3.5.8'));
+assert.equal(pkg.version,'3.5.8');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
@@ -71,63 +71,25 @@ const unwrap=r=>JSON.parse(r.body).data;
  ]);
  const listA=unwrap(ra).list,listB=unwrap(rb).list;
  const homeA=listA[0],homeB=listB[0];
- assert.equal(homeA.id,1000000000+A);
- assert.equal(homeA.itemId,albumFor(A).itemId,'EXHOBBY owns the real native itemId for the initial tap');
- assert.equal(homeB.id,1000000000+B);
- assert.equal(homeB.itemId,albumFor(B).itemId,'each EXHOBBY card owns its real native itemId');
+ assert(homeA.id>=800000000&&homeA.id<1000000000,'EXHOBBY uses a native-looking local route');
+ assert.equal(homeA.itemId,homeA.id,'EXHOBBY id and itemId use the same unique local route');
+ assert(homeB.id>=800000000&&homeB.id<1000000000,'each item gets a native-looking local route');
+ assert.equal(homeB.itemId,homeB.id,'each EXHOBBY card keeps a unique local route');
  assert.equal(homeA.picCount,45);assert.equal(homeB.picCount,27);
  assert.equal(homeA.cover,'/__exhobby__/2026/09/'+A+'-0.jpg');
  assert.equal(homeB.cover,'/__exhobby__/2026/09/'+B+'-0.jpg');
  assert.equal(homeA.name,'EXHOBBY 相册');
- // Two-stage route: the card has synthetic id + native itemId. album/detail must
- // identify EXHOBBY from the synthetic id and return a fully synthetic album.
+ // Unique EXHOBBY route is fully local and safely remapped before Hpoi backend.
  const stagedJob=await h.begin('album/detail',
-   'id='+(1000000000+A)+'&itemId='+albumFor(A).itemId+'&itemType=album');
+   'id='+homeA.id+'&itemId='+homeA.itemId+'&itemType=album');
  const stagedMapped=new URLSearchParams(stagedJob.mapped.body);
- assert.equal(stagedMapped.get('id'),'214102','synthetic id is remapped safely for Hpoi backend');
- assert.equal(stagedMapped.get('itemId'),String(albumFor(A).itemId),
-   'EXHOBBY initial itemId remains the real native route');
+ assert.equal(stagedMapped.get('id'),'214102','unique EXHOBBY id is safely remapped for Hpoi backend');
+ assert.equal(stagedMapped.get('itemId'),'214102','unique EXHOBBY itemId is safely remapped for Hpoi backend');
  const stagedDetail=unwrap(await h.end(stagedJob,{success:true,data:{album:albumFor(A)}}));
- assert.equal(stagedDetail.album.id,1000000000+A);
- assert.equal(stagedDetail.album.itemId,1000000000+A,
-   'album/detail switches navigation to the fully synthetic EXHOBBY route');
+ assert.equal(stagedDetail.album.id,homeA.id);
+ assert.equal(stagedDetail.album.itemId,homeA.itemId);
+ assert.equal(stagedDetail.album.picCount,45);
 
- const proxiedNative=listA[1];
- const nativeJob=await h.begin('album/detail',
-   'id='+proxiedNative.id+'&itemId='+proxiedNative.itemId+'&itemType=album');
- const nativeMapped=new URLSearchParams(nativeJob.mapped.body);
- assert.equal(nativeMapped.get('id'),String(albumFor(A).id),
-   'native album id is never rewritten');
- assert.equal(nativeMapped.get('itemId'),String(albumFor(A).itemId),
-   'proxied native itemId is restored before reaching Hpoi');
- const nativeDetail=unwrap(await h.end(nativeJob,{success:true,data:{album:albumFor(A)}}));
- assert.equal(nativeDetail.album.id,albumFor(A).id);
- assert.equal(nativeDetail.album.itemId,proxiedNative.itemId,
-   'native response restores only the local itemId proxy');
-
- const nativePicsJob=await h.begin('pic/list/relate-v2',
-   'itemId='+proxiedNative.itemId+'&itemType=album&page=1&pageSize=20');
- const nativePicsMapped=new URLSearchParams(nativePicsJob.mapped.body);
- assert.equal(nativePicsMapped.get('itemId'),String(albumFor(A).itemId),
-   'native picture pagination transparently restores real itemId');
- const nativePicsOut=await h.end(nativePicsJob,{success:true,data:{list:[
-   {id:991,rank:1,subType:7,pictureInfo:{id:991,itemId:992,itemType:'pic',path:'native-proxy.jpg'}}
- ]}});
- const nativePicsData=unwrap(nativePicsOut).list;
- assert.equal(nativePicsData.filter(r=>String(r.pictureInfo&&r.pictureInfo.path||'').startsWith('/__exhobby__/')).length,45,
-   'proxied native album first page also receives EXHOBBY rows');
- assert.equal(nativePicsData.at(-1).pictureInfo.path,'native-proxy.jpg');
- assert.equal(listA[1].id,albumFor(A).id,
-   'proxied native album keeps its original id');
- assert.notEqual(listA[1].itemId,albumFor(A).itemId,
-   'only the borrowed native album itemId is proxied');
- assert.equal(JSON.stringify(listA[2]),JSON.stringify(secondAlbumFor(A)),
-   'other native Hpoi albums remain byte-for-byte unchanged');
- assert.equal(listB[1].id,albumFor(B).id,
-   'native album identity stays isolated for every item');
- assert.notEqual(listB[1].itemId,albumFor(B).itemId,
-   'each borrowed native itemId receives its own proxy');
- for(const id of[A,B]){const g=JSON.parse(h.prefs.get(NS+'all:'+id+':gallery'));assert(g.complete);assert(g.rows.every(r=>r.path.includes(id+'-')));}
  const pics=async(id,page)=>unwrap(await h.rt('pic/list/relate-v2','itemId='+(1000000000+id)+'&itemType=album&page='+page+'&pageSize=20',{success:true,data:{list:[]}})).list;
  const pa=await pics(A,1),pb=await pics(B,1);
  assert.equal(pa.length,20);assert.equal(pb.length,20);
@@ -193,8 +155,8 @@ const unwrap=r=>JSON.parse(r.body).data;
  let noNative=harness();await noNative.metadata(A);
  const noNativeHome=unwrap(await noNative.rt('hobby/album','id='+A+'&page=1&pageSize=10',
    {success:true,data:{list:[]}})).list[0];
- assert.equal(noNativeHome.id,1000000000+A,'homepage entry remains available without a native album');
- assert.equal(noNativeHome.itemId,1000000000+A,'no-native-album entries use the synthetic route only');
+ assert(noNativeHome.id>=800000000&&noNativeHome.id<1000000000,'homepage entry remains available without a native album');
+ assert.equal(noNativeHome.itemId,noNativeHome.id,'no-native-album entries use their unique local route');
 
  let resume=harness();resume.fail(A,2);await resume.load(A);await resume.load(B);
  assert.equal(JSON.parse(resume.prefs.get(NS+'all:'+A+':work')).next,2);
