@@ -78,15 +78,40 @@
     index[key] = entry;
     writeCacheIndex(index);
   }
+  function pictureIdBaseForPath(path) {
+    var hash = 2166136261, value = String(path || "");
+    for (var i = 0; i < value.length; i++) {
+      hash = Math.imul(hash ^ value.charCodeAt(i), 16777619) >>> 0;
+    }
+    return PIC_BASE + (hash % 139999999 + 1);
+  }
+  function removeGalleryImageMappings(gallery) {
+    if (!gallery || !Array.isArray(gallery.rows)) return 0;
+    var removed = 0;
+    gallery.rows.forEach(function (row) {
+      var id = pictureIdBaseForPath(row && row.path);
+      if ($prefs.removeValueForKey(NS + "image:" + id)) removed++;
+    });
+    return removed;
+  }
   function purgeTrackedItem(item, entry) {
     item = Number(item);
     if (!validItem(item)) return 0;
     entry = entry || {};
     var removed = 0;
+    try {
+      var legacyGallery = JSON.parse($prefs.valueForKey(NS + "all:" + item + ":gallery") || "null");
+      removed += removeGalleryImageMappings(legacyGallery);
+    } catch (_) {}
     ["gallery", "gallery-link", "work", "lock", "hobby", "known"].forEach(function (k) {
       if ($prefs.removeValueForKey(NS + "all:" + item + ":" + k)) removed++;
     });
     (Array.isArray(entry.albums) ? entry.albums : []).forEach(function (albumId) {
+      try {
+        var scoped = JSON.parse($prefs.valueForKey(
+          NS + "album-gallery:" + item + ":" + albumId) || "null");
+        removed += removeGalleryImageMappings(scoped);
+      } catch (_) {}
       ["album-gallery:", "album-work:", "album-lock:"].forEach(function (prefix) {
         if ($prefs.removeValueForKey(NS + prefix + item + ":" + albumId)) removed++;
       });
