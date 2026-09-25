@@ -2,8 +2,8 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
-assert(script.startsWith('// Hpoi + EXHOBBY native album v3.4.0'));
-assert.equal(pkg.version,'3.4.0');
+assert(script.startsWith('// Hpoi + EXHOBBY native album v3.4.1'));
+assert.equal(pkg.version,'3.4.1');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
@@ -98,19 +98,25 @@ const unwrap=r=>JSON.parse(r.body).data;
  let insidePage=unwrap(await inside.rt('pic/list/relate-v2',
    'itemId=214102&itemType=album&page=1&pageSize=20',
    {success:true,data:{list:[{id:901,rank:1,pictureInfo:normalPicture}]}})).list;
- assert.equal(insidePage.length,2,'EXHOBBY entry is added without removing Hpoi pictures');
+ assert.equal(insidePage.length,47,'cover, complete EXHOBBY viewer sequence, and Hpoi pictures are returned together');
  assert.equal(insidePage[0].id,1000000000+A);
  assert.equal(insidePage[0].pictureInfo.itemId,1000000000+A);
  assert.equal(insidePage[0].pictureInfo.itemType,'album');
  assert.equal(insidePage[0].pictureInfo.path,'/__exhobby__/cover-v3.2.png');
- assert.equal(insidePage[1].pictureInfo.path,'normal-inside.jpg');
+ assert.equal(insidePage[1].pictureInfo.path,'/__exhobby__/2026/09/'+A+'-0.jpg');
+ assert.equal(insidePage[45].pictureInfo.path,'/__exhobby__/2026/09/'+A+'-44.jpg');
+ assert.equal(insidePage[46].pictureInfo.path,'normal-inside.jpg');
+ assert(insidePage.slice(1,46).every(row=>row.pictureInfo.itemType==='pic'));
+ assert.equal(unwrap(await inside.rt('item/get','id='+insidePage[1].id,
+   {success:true,data:{itemData:{}}})).itemData.path,insidePage[1].pictureInfo.path,
+   'embedded EXHOBBY photos keep native detail navigation');
  let insidePage2=await inside.rt('pic/list/relate-v2',
    'itemId=214102&itemType=album&page=2&pageSize=20',
    {success:true,data:{list:[{id:903,rank:21,pictureInfo:{...normalPicture,id:903,itemId:904,path:'normal-page2.jpg'}}]}});
  assert.equal(JSON.stringify(insidePage2),'{}','EXHOBBY entry is only injected on page 1');
  let insideTap=unwrap(await inside.rt('item/get','id='+(1000000000+A),
    {success:true,data:{itemData:{}}}));
- assert.equal(insideTap.itemData.itemType,'album','album-grid EXHOBBY entry opens the native virtual album');
+ assert.equal(insideTap.itemData.itemType,'album','cover keeps virtual-album metadata for compatible Hpoi builds');
  assert.equal(insideTap.itemData.picCount,45);
 
  const count=h.calls.length;await h.load(A);assert.equal(h.calls.length,count,'A cache is reused separately');
@@ -193,7 +199,7 @@ const unwrap=r=>JSON.parse(r.body).data;
   assert(upgrade>=0&&capture>upgrade,file+' must upgrade HTTP before HTTPS session capture');
   if(file==='hpoi-exhobby.snippet'){
    const remoteScripts=rules.filter(line=>line.includes('url script-')&&line.includes('hpoi-exhobby.js'));
-   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.4.0')),
+   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.4.1')),
     'remote EXHOBBY scripts must bypass the prior URL cache');
   }
   const [upgradeSource,upgradeTarget]=rules[upgrade].split(' url 307 ');
