@@ -1,4 +1,4 @@
-// Hpoi + EXHOBBY native album v3.6.0 — Quantumult X
+// Hpoi + EXHOBBY native album v3.6.1 — Quantumult X
 // Automatically handles hobby entries with an EXHOBBY gallery.
 // Reuses the browser session and native templates saved by v2.3.
 // No Hpoi token is stored or sent to EXHOBBY.
@@ -11,7 +11,8 @@
   var ALBUM_BASE = 1000000000, PROXY_BASE = 1400000000;
   var PROXY_SPAN = 500000000, PIC_BASE = 2001000000;
   var EX_ROUTE_BASE = 800000000, EX_ROUTE_SPAN = 199999999;
-  var CACHE_ITEM_TTL = 3 * 86400000, CACHE_ITEM_LIMIT = 8;
+  var CACHE_ITEM_TTL = 7 * 86400000, CACHE_ALBUM_TTL = 7 * 86400000;
+  var CACHE_ITEM_LIMIT = 32, GC_INTERVAL = 6 * 3600000;
   var ALBUM_GALLERY_TTL = 30 * 60000;
   var FIELDS = ["id", "itemId", "itemType", "albumId", "picId",
     "hobbyId", "type", "subType", "order", "sort", "page", "pageSize"];
@@ -21,6 +22,8 @@
     /^https:\/\/www\.hpoi\.net\.cn\/api\/(item\/get|hobby\/album|album\/detail|pic\/list\/relate-v2)(?:\?|$)/);
   var endpoint = match && match[1];
   var cacheClearRequest = /^https:\/\/www\.exhobby\.net\/__hpoi_cache_clear__(?:\?|$)/i
+    .test(String(req.url || ""));
+  var cacheStatusRequest = /^https:\/\/www\.exhobby\.net\/__hpoi_cache_status__(?:\?|$)/i
     .test(String(req.url || ""));
 
   function log(s) { console.log("[HPOI_EXHOBBY] " + (ITEM ? "item=" + ITEM + " " : "") + s); }
@@ -66,8 +69,12 @@
   function trackCacheValue(kind, value) {
     if (!validItem(ITEM)) return;
     var index = cacheIndex(), key = String(ITEM);
-    var entry = index[key] || { last: Date.now(), albums: [], images: [], routes: [] };
+    var entry = index[key] || {
+      last: Date.now(), albums: [], albumLast: {}, images: [], routes: []
+    };
     if (!Array.isArray(entry.albums)) entry.albums = [];
+    if (!entry.albumLast || typeof entry.albumLast !== "object" ||
+        Array.isArray(entry.albumLast)) entry.albumLast = {};
     if (!Array.isArray(entry.images)) entry.images = [];
     if (!Array.isArray(entry.routes)) entry.routes = [];
     entry.last = Date.now();
@@ -75,6 +82,25 @@
       var list = entry[kind], n = Number(value);
       if (Array.isArray(list) && Number.isInteger(n) && list.indexOf(n) < 0) list.push(n);
     }
+    index[key] = entry;
+    writeCacheIndex(index);
+  }
+  function touchAlbumCache(albumItemId) {
+    albumItemId = Number(albumItemId);
+    if (!validItem(ITEM) || !Number.isInteger(albumItemId) ||
+        albumItemId <= 0 || albumItemId >= ALBUM_BASE) return;
+    var index = cacheIndex(), key = String(ITEM);
+    var entry = index[key] || {
+      last: Date.now(), albums: [], albumLast: {}, images: [], routes: []
+    };
+    if (!Array.isArray(entry.albums)) entry.albums = [];
+    if (!entry.albumLast || typeof entry.albumLast !== "object" ||
+        Array.isArray(entry.albumLast)) entry.albumLast = {};
+    if (!Array.isArray(entry.images)) entry.images = [];
+    if (!Array.isArray(entry.routes)) entry.routes = [];
+    if (entry.albums.indexOf(albumItemId) < 0) entry.albums.push(albumItemId);
+    entry.last = Date.now();
+    entry.albumLast[String(albumItemId)] = Date.now();
     index[key] = entry;
     writeCacheIndex(index);
   }
@@ -94,6 +120,32 @@
     });
     return removed;
   }
+  function purgeTrackedAlbum(item, albumId, entry) {
+    item = Number(item); albumId = Number(albumId);
+    if (!validItem(item) || !Number.isInteger(albumId) ||
+        albumId <= 0 || albumId >= ALBUM_BASE) return 0;
+    entry = entry || {};
+    var removed = 0;
+    try {
+      var scoped = JSON.parse($prefs.valueForKey(
+        NS + "album-gallery:" + item + ":" + albumId) || "null");
+      removed += removeGalleryImageMappings(scoped);
+    } catch (_) {}
+    ["album-gallery:", "album-work:", "album-lock:"].forEach(function (prefix) {
+      if ($prefs.removeValueForKey(NS + prefix + item + ":" + albumId)) removed++;
+    });
+    if ($prefs.removeValueForKey(NS + "album-owner:" + albumId)) removed++;
+    if ($prefs.removeValueForKey(NS + "standalone-album:" + albumId)) removed++;
+    if (Array.isArray(entry.albums)) {
+      entry.albums = entry.albums.filter(function (value) {
+        return Number(value) !== albumId;
+      });
+    }
+    if (entry.albumLast && typeof entry.albumLast === "object") {
+      delete entry.albumLast[String(albumId)];
+    }
+    return removed;
+  }
   function purgeTrackedItem(item, entry) {
     item = Number(item);
     if (!validItem(item)) return 0;
@@ -106,17 +158,8 @@
     ["gallery", "gallery-link", "work", "lock", "hobby", "known"].forEach(function (k) {
       if ($prefs.removeValueForKey(NS + "all:" + item + ":" + k)) removed++;
     });
-    (Array.isArray(entry.albums) ? entry.albums : []).forEach(function (albumId) {
-      try {
-        var scoped = JSON.parse($prefs.valueForKey(
-          NS + "album-gallery:" + item + ":" + albumId) || "null");
-        removed += removeGalleryImageMappings(scoped);
-      } catch (_) {}
-      ["album-gallery:", "album-work:", "album-lock:"].forEach(function (prefix) {
-        if ($prefs.removeValueForKey(NS + prefix + item + ":" + albumId)) removed++;
-      });
-      if ($prefs.removeValueForKey(NS + "album-owner:" + albumId)) removed++;
-      if ($prefs.removeValueForKey(NS + "standalone-album:" + albumId)) removed++;
+    (Array.isArray(entry.albums) ? entry.albums.slice() : []).forEach(function (albumId) {
+      removed += purgeTrackedAlbum(item, albumId, entry);
     });
     (Array.isArray(entry.images) ? entry.images : []).forEach(function (id) {
       if ($prefs.removeValueForKey(NS + "image:" + id)) removed++;
@@ -127,25 +170,86 @@
     if ($prefs.removeValueForKey(NS + "exhobby-route-for-item:" + item)) removed++;
     return removed;
   }
-  function runCacheGC(force) {
-    var now = Date.now(), last = Number(readRaw("gc-last") || 0);
-    if (!force && last && now - last < 6 * 3600000) return 0;
-    var index = cacheIndex(), keys = Object.keys(index), removed = 0;
+  function cacheStats(now) {
+    now = Number(now) || Date.now();
+    var index = cacheIndex(), keys = Object.keys(index);
+    var stats = {
+      trackedItems: keys.length, trackedAlbums: 0,
+      staleItems: 0, staleAlbums: 0, overflowItems: 0
+    };
     keys.sort(function (a, b) {
-      return Number(index[b] && index[b].last || 0) - Number(index[a] && index[a].last || 0);
+      return Number(index[b] && index[b].last || 0) -
+        Number(index[a] && index[a].last || 0);
     });
     keys.forEach(function (key, position) {
       var entry = index[key] || {};
-      var stale = now - Number(entry.last || 0) > CACHE_ITEM_TTL;
-      var overflow = position >= CACHE_ITEM_LIMIT;
-      if ((stale || overflow) && Number(key) !== ITEM) {
-        removed += purgeTrackedItem(Number(key), entry);
-        delete index[key];
-      }
+      var itemLast = Number(entry.last || 0);
+      if (itemLast && now - itemLast > CACHE_ITEM_TTL) stats.staleItems++;
+      if (position >= CACHE_ITEM_LIMIT) stats.overflowItems++;
+      var albums = Array.isArray(entry.albums) ? entry.albums : [];
+      stats.trackedAlbums += albums.length;
+      albums.forEach(function (albumId) {
+        var albumLast = Number(entry.albumLast && entry.albumLast[String(albumId)] || 0);
+        if (albumLast && now - albumLast > CACHE_ALBUM_TTL) stats.staleAlbums++;
+      });
     });
+    return stats;
+  }
+  function runCacheGC(force) {
+    var now = Date.now(), last = Number(readRaw("gc-last") || 0);
+    if (!force && last && now - last < GC_INTERVAL) return 0;
+
+    var index = cacheIndex(), keys = Object.keys(index), removed = 0;
+    var staleItems = 0, staleAlbums = 0, overflowItems = 0;
+    keys.sort(function (a, b) {
+      return Number(index[b] && index[b].last || 0) -
+        Number(index[a] && index[a].last || 0);
+    });
+
+    keys.forEach(function (key, position) {
+      var entry = index[key] || {};
+      if (!entry.albumLast || typeof entry.albumLast !== "object" ||
+          Array.isArray(entry.albumLast)) entry.albumLast = {};
+      var item = Number(key);
+      var itemLast = Number(entry.last || 0);
+      var staleItem = itemLast && now - itemLast > CACHE_ITEM_TTL;
+      var overflow = position >= CACHE_ITEM_LIMIT;
+
+      if ((staleItem || overflow) && item !== ITEM) {
+        if (staleItem) staleItems++;
+        if (overflow) overflowItems++;
+        removed += purgeTrackedItem(item, entry);
+        delete index[key];
+        return;
+      }
+
+      var albums = Array.isArray(entry.albums) ? entry.albums.slice() : [];
+      albums.forEach(function (albumId) {
+        var albumLast = Number(entry.albumLast[String(albumId)] || 0);
+        // Older indexes had no per-album timestamp. Start their 7-day clock
+        // from the item's last known use instead of deleting them immediately.
+        if (!albumLast) {
+          entry.albumLast[String(albumId)] = itemLast || now;
+          return;
+        }
+        if (now - albumLast > CACHE_ALBUM_TTL) {
+          staleAlbums++;
+          removed += purgeTrackedAlbum(item, albumId, entry);
+        }
+      });
+      index[key] = entry;
+    });
+
     writeCacheIndex(index);
     saveRaw("gc-last", now);
-    if (removed) log("cache GC removed=" + removed + " tracked entries");
+    var stats = cacheStats(now);
+    log("cache GC checked trackedItems=" + stats.trackedItems +
+      " trackedAlbums=" + stats.trackedAlbums +
+      " staleItems=" + staleItems +
+      " staleAlbums=" + staleAlbums +
+      " overflowItems=" + overflowItems +
+      " removed=" + removed +
+      " nextCheckHours=6");
     return removed;
   }
   function clearTrackedCaches() {
@@ -164,6 +268,27 @@
       "<title>HPOI EXHOBBY Cache</title><body style=\"font-family:-apple-system;padding:32px;line-height:1.6\">" +
       "<h2>EXHOBBY 缓存已清理</h2><p>已清理 " + removed +
       " 个已跟踪运行缓存项。</p><p>Safari 年龄验证会话和通知设置已保留。</p></body>";
+    done({ status: "HTTP/1.1 200 OK", body: body,
+      headers: { "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store" } });
+    return true;
+  }
+  function handleCacheStatus() {
+    if (!cacheStatusRequest) return false;
+    var now = Date.now(), stats = cacheStats(now);
+    var last = Number(readRaw("gc-last") || 0);
+    var next = last ? Math.max(0, GC_INTERVAL - (now - last)) : 0;
+    var body = "<!doctype html><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" +
+      "<title>HPOI EXHOBBY Cache Status</title><body style=\"font-family:-apple-system;padding:32px;line-height:1.7\">" +
+      "<h2>EXHOBBY 缓存状态</h2>" +
+      "<p>已跟踪词条：" + stats.trackedItems + "</p>" +
+      "<p>已跟踪相册：" + stats.trackedAlbums + "</p>" +
+      "<p>超过 7 天未看的词条：" + stats.staleItems + "</p>" +
+      "<p>超过 7 天未看的相册：" + stats.staleAlbums + "</p>" +
+      "<p>安全上限外词条：" + stats.overflowItems + "</p>" +
+      "<p>上次 GC：" + (last ? new Date(last).toLocaleString() : "尚未执行") + "</p>" +
+      "<p>距离下次自动检查约：" + Math.ceil(next / 60000) + " 分钟</p>" +
+      "<p>规则：词条/相册连续 7 天未查看自动回收；最多保留最近 32 个词条。</p></body>";
     done({ status: "HTTP/1.1 200 OK", body: body,
       headers: { "Content-Type": "text/html; charset=utf-8",
         "Cache-Control": "no-store" } });
@@ -402,7 +527,7 @@
     var previous = read("verify-notice"), now = Date.now();
     if (previous && now - Number(previous.time) < VERIFY_COOLDOWN) return;
     if (!save("verify-notice", { time: now })) {
-      log("v3.6.0 notice cooldown could not be saved");
+      log("v3.6.1 notice cooldown could not be saved");
     }
     var url = error.verificationURL;
     var title = "EXHOBBY 需要验证";
@@ -426,7 +551,7 @@
       } catch (_) {} finally {
         if (typeof clearTimeout === "function") clearTimeout(timer);
       }
-      log("v3.6.0 Bark delivery failed; falling back to Quantumult X notice");
+      log("v3.6.1 Bark delivery failed; falling back to Quantumult X notice");
     }
     if (typeof $notify === "function") {
       $notify(title, "打开 EXHOBBY 验证", message + "\n" + url);
@@ -733,9 +858,9 @@
               /^https:\/\/www\.exhobby\.net\/picture\?link=/.test(url)) {
             save("all:" + Number(pageItem[1]) + ":gallery-link", verifyURL(url));
           }
-          log("v3.6.0 browser session saved; reopen Hpoi");
-        } else log("v3.6.0 browser session cache write failed");
-      } else log("v3.6.0 gallery loaded, but Cookie header missing; tap More in Safari");
+          log("v3.6.1 browser session saved; reopen Hpoi");
+        } else log("v3.6.1 browser session cache write failed");
+      } else log("v3.6.1 gallery loaded, but Cookie header missing; tap More in Safari");
     }
     done();
     return true;
@@ -784,7 +909,7 @@
       var title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
       var heading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
       var item = html.match(/\bquery\s*\.\s*item\s*=\s*["']?(\d+)/i);
-      log("v3.6.0 " + stage + " title=" + label(title && title[1]) +
+      log("v3.6.1 " + stage + " title=" + label(title && title[1]) +
         " h1=" + label(heading && heading[1]) +
         " figures=" + (html.match(/<figure\b/gi) || []).length +
         " images=" + (html.match(/<img\b/gi) || []).length +
@@ -815,7 +940,7 @@
         try { text = decodeURIComponent(encoded); }
         catch (_) { throw new Error(stage + " invalid UTF-8 bodyBytes"); }
       }
-      log("v3.6.0 " + stage + " HTTP=" + response.statusCode +
+      log("v3.6.1 " + stage + " HTTP=" + response.statusCode +
         " body=" + (text === null ? "missing" : text.length) +
         " type=" + (header(response, "content-type") || "unknown"));
       if (text === null || !text.trim()) {
@@ -868,7 +993,7 @@
         var status = Number(response.statusCode);
         if ([301, 302, 303, 307, 308].indexOf(status) >= 0) {
           url = safeURL(header(response, "location"));
-          log("v3.6.0 " + stage + " redirect=" + url.split("?")[0]);
+          log("v3.6.1 " + stage + " redirect=" + url.split("?")[0]);
           if (status === 303 || ((status === 301 || status === 302) && method === "POST")) {
             method = "GET"; body = "";
           }
@@ -915,7 +1040,7 @@
       if (!rows.length) {
         throw new Error("fresh first HTML has no gallery pictures; see title/redirect above");
       }
-      log("v3.6.0 " + scopeLabel + " first HTML count=" + rows.length);
+      log("v3.6.1 " + scopeLabel + " first HTML count=" + rows.length);
       return rows;
     }
     async function bootstrap(ticket) {
@@ -943,7 +1068,7 @@
       }
       galleryURL = url;
       if (targetType === "hobby") save("gallery-link", url);
-      log("v3.6.0 " + scopeLabel + " fresh map.url ready; preview list not used");
+      log("v3.6.1 " + scopeLabel + " fresh map.url ready; preview list not used");
       firstRows = parseFirst(await request(url, "GET", "", "first HTML", ticket));
     }
     return {
@@ -954,7 +1079,7 @@
           "page=" + page + "&item=" + pageItem + "&type=all", "page " + page, ticket);
         var list = parseJSON(text, "page " + page);
         if (!Array.isArray(list)) throw new Error("page " + page + " response is not an array");
-        log("v3.6.0 " + scopeLabel + " page=" + page + " count=" + list.length);
+        log("v3.6.1 " + scopeLabel + " page=" + page + " count=" + list.length);
         return list;
       }
     };
@@ -963,7 +1088,7 @@
     return new Promise(function (resolve, reject) {
       var finished = false;
       var timer = setTimeout(function () {
-        finish(new Error("v3.6.0 " + (label || "gallery") +
+        finish(new Error("v3.6.1 " + (label || "gallery") +
           " page=" + page + " timeout; refresh to resume"));
       }, milliseconds);
       function finish(error, value) {
@@ -1031,7 +1156,7 @@
     if (!Number.isInteger(albumItemId) || albumItemId <= 0 || albumItemId >= ALBUM_BASE) {
       return { version: 31, complete: true, time: Date.now(), rows: [], scoped: false };
     }
-    trackCacheValue("albums", albumItemId);
+    touchAlbumCache(albumItemId);
     var prefix = ITEM + ":" + albumItemId;
     var complete = readRaw("album-gallery:" + prefix), now = Date.now();
     if (complete && complete.complete && complete.version === 31 &&
@@ -1125,7 +1250,7 @@
       var firstSignature = first.map(function (r) { return r.path; }).join("|");
       if (work.next > 1 && work.first !== firstSignature) {
         work = { version: 30, started: now, next: 1, rows: [], last: "", first: "" };
-        log("v3.6.0 first page changed; restarting pagination");
+        log("v3.6.1 first page changed; restarting pagination");
       }
       work.first = firstSignature;
       var paths = Object.create(null), ids = Object.create(null);
@@ -1177,6 +1302,7 @@
     }
   }
   async function main() {
+    if (handleCacheStatus()) return;
     if (handleCacheClear()) return;
     if (captureExhobbySession()) return;
     if (!endpoint) return done();
@@ -1186,7 +1312,7 @@
     if (!isResponse) {
       if (session == null) { log("request session unavailable"); return done(); }
       var p = params(), v = endpoint === "hobby/album" ? null : virtualItem(p);
-      log("runtime=v3.6.0 phase=request endpoint=" + endpoint);
+      log("runtime=v3.6.1 phase=request endpoint=" + endpoint);
       if (endpoint === "album/detail" || endpoint === "pic/list/relate-v2" ||
           endpoint === "item/get") {
         var routeBits = [];
@@ -1205,7 +1331,7 @@
       var output = {};
       if (v && (v.type === "normal-owner" || v.type === "standalone-owner")) {
         ctx.remapped = false;
-        log("v3.6.0 " + (v.type === "standalone-owner" ? "standalone" : "native") +
+        log("v3.6.1 " + (v.type === "standalone-owner" ? "standalone" : "native") +
           " album owner resolved itemId=" + v.route);
       } else if (v && v.type === "normal-nav") {
         if (Number(p.itemId) !== Number(v.proxy)) {
@@ -1213,7 +1339,7 @@
         }
         output = changeRequest({ itemId: String(v.route) });
         ctx.remapped = true;
-        log("v3.6.0 native album navigation itemId restored " +
+        log("v3.6.1 native album navigation itemId restored " +
           v.proxy + "->" + v.route);
       } else if (v && v.type === "normal") {
         var proxyChanges = {};
@@ -1225,7 +1351,7 @@
         }
         output = changeRequest(proxyChanges);
         ctx.remapped = true;
-        log("v3.6.0 normal album proxy remapped to native route");
+        log("v3.6.1 normal album proxy remapped to native route");
       } else if (v) {
         var seed = read("seed:" + endpoint);
         if (!seed || !seed.p) throw new Error("open a normal Hpoi album first");
@@ -1247,7 +1373,7 @@
               !changes[k]) {
             if (!safeId) throw new Error("native album template has no safe ID field");
             changes[k] = safeId;
-            log("v3.6.0 remap request field " + k + " via template ID");
+            log("v3.6.1 remap request field " + k + " via template ID");
           }
         });
         output = changeRequest(changes);
@@ -1411,7 +1537,7 @@
         rememberAlbumOwner(nativeAlbum);
       });
 
-      // v3.6.0: native Hpoi albums keep their original id/itemId unchanged.
+      // v3.6.1: native Hpoi albums keep their original id/itemId unchanged.
       // EXHOBBY receives its own stable local route that is checked against all
       // native id/itemId/albumId values in this hobby before insertion.
       var dedicatedRoute = dedicatedAlbumRoute(doc.data.list);
@@ -1434,7 +1560,7 @@
     done();
   }
   main().catch(function (e) {
-    log("v3.6.0 " + (e && e.message ? e.message : "operation failed"));
+    log("v3.6.1 " + (e && e.message ? e.message : "operation failed"));
     Promise.resolve().then(function () {
       if (e && e.verificationURL) return notifyVerification(e);
     }).catch(function () {}).then(function () {
