@@ -2,7 +2,15 @@
 
 在 Hpoi iOS App 的手办词条相册列表中添加「EXHOBBY 相册」入口，点击后通过 Hpoi 原生相册查看图片。
 
-当前版本：**v3.5.0**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。每个词条只新增一个独立「EXHOBBY 相册」入口；全部 EXHOBBY 图片只显示在这个专用相册中，普通 Hpoi 相册保持原样。
+当前版本：**v3.5.1**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。每个词条只新增一个独立「EXHOBBY 相册」入口；全部 EXHOBBY 图片只显示在这个专用相册中，普通 Hpoi 相册保持原样。
+
+## v3.5.1 EXHOBBY 图片网格兼容修复
+
+- 修复 EXHOBBY 相册详情能正确显示图片总数（例如 42 张），但打开后图片网格为空的问题。
+- Hpoi 原生 `/api/pic/list/relate-v2` 的每个列表项除了 `id / rank / pictureInfo` 外，还可能依赖 `subType` 等外层字段。
+- v3.5.1 不再手工构造最简列表项，而是完整复制一条真实 Hpoi 图片行作为模板，只替换图片 ID、排序和 `pictureInfo`。
+- 对从 v3.5.0 升级的设备，打开 EXHOBBY 相册时会利用安全映射得到的原生 Hpoi 响应自动刷新完整图片行模板，无需先手动打开普通相册。
+- 普通 Hpoi 相册继续完全原样透传；只有 EXHOBBY 专用相册使用 EXHOBBY 图片。
 
 ## v3.5.0 原生相册完全隔离
 
@@ -109,7 +117,7 @@
 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.snippet, tag=HPOI_EXHOBBY, enabled=true
 ```
 
-保存并更新远程资源，确认资源成功加载九条重写规则。EXHOBBY 主脚本使用带 `v=3.5.0` 标记的地址，避免继续使用旧脚本缓存；开屏广告清理脚本仍可使用其独立缓存版本。旧标识封面资产仅为兼容 v3.4.1 缓存保留，v3.4.3 不再把它插入任何相册。
+保存并更新远程资源，确认资源成功加载九条重写规则。EXHOBBY 主脚本使用带 `v=3.5.1` 标记的地址，避免继续使用旧脚本缓存；开屏广告清理脚本仍可使用其独立缓存版本。旧标识封面资产仅为兼容 v3.4.1 缓存保留，v3.4.3 不再把它插入任何相册。
 
 如果通过圈叉的重写资源界面添加，资源地址填写上面的订阅链接。配置行用于 `[rewrite_remote]`，不要把仓库首页链接或 JS 文件链接当作重写订阅地址。
 
@@ -190,9 +198,11 @@ host-suffix, hpoi.net, direct
 
 从 v3.1 或更早版本升级时，仍需确认主脚本、两份重写配置以及 `assets/exhobby-cover-v3.2.png` 都已在仓库中；封面规则必须排在 EXHOBBY 图片通用跳转规则之前。
 
-从 v3.4.x 升级到 v3.5.0 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源，确认主脚本地址带 `hpoi-exhobby.js?v=3.5.0`。随后彻底结束 Hpoi 并重新打开出现问题的词条。新版本会忽略旧的普通相册代理记录，无需清空 EXHOBBY 图库缓存，也无需重新做年龄验证。
+从 v3.5.0 升级到 v3.5.1 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源，确认主脚本地址带 `hpoi-exhobby.js?v=3.5.1`。不需要清除图库缓存或重新验证年龄；首次重新打开 EXHOBBY 相册时会自动刷新完整原生图片行模板。
 
-从 v3.4.3 升级到 v3.4.4 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源，确认主脚本地址带 `hpoi-exhobby.js?v=3.5.0`。建议更新后重新进入出现过“相册不存在”的词条一次，让该词条的真实路由与代理记录按新规则刷新；不需要清除 EXHOBBY 图库缓存或重新做年龄验证。
+从 v3.4.x 升级到 v3.5.0 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源，确认主脚本地址带 `hpoi-exhobby.js?v=3.5.1`。随后彻底结束 Hpoi 并重新打开出现问题的词条。新版本会忽略旧的普通相册代理记录，无需清空 EXHOBBY 图库缓存，也无需重新做年龄验证。
+
+从 v3.4.3 升级到 v3.4.4 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源，确认主脚本地址带 `hpoi-exhobby.js?v=3.5.1`。建议更新后重新进入出现过“相册不存在”的词条一次，让该词条的真实路由与代理记录按新规则刷新；不需要清除 EXHOBBY 图库缓存或重新做年龄验证。
 
 从 v3.4.2 升级到 v3.4.3 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源。确认主脚本地址带 `hpoi-exhobby.js?v=3.4.3`，再彻底结束 Hpoi 并重新打开。已有图库缓存、原生相册模板和浏览器验证会话都会保留；升级后 EXHOBBY 图片只出现在独立入口，普通 Hpoi 相册恢复原内容。
 
@@ -216,7 +226,7 @@ host-suffix, hpoi.net, direct
 
 本地配置文件是配置片段，不要用它覆盖整份圈叉配置。本地和远程两种安装方式选择一种，避免两套规则同时执行。
 
-脚本原文地址：[hpoi-exhobby.js](https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js)。当前脚本以 `// Hpoi + EXHOBBY native album v3.5.0` 开头；`Unsupported Media Type`、HTML 错误页和 Markdown 代码围栏都不能作为 JavaScript 保存。
+脚本原文地址：[hpoi-exhobby.js](https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js)。当前脚本以 `// Hpoi + EXHOBBY native album v3.5.1` 开头；`Unsupported Media Type`、HTML 错误页和 Markdown 代码围栏都不能作为 JavaScript 保存。
 
 ## 仓库文件与维护
 
