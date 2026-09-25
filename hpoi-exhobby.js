@@ -1,4 +1,4 @@
-// Hpoi + EXHOBBY native album v3.5.0 — Quantumult X
+// Hpoi + EXHOBBY native album v3.5.1 — Quantumult X
 // Automatically handles hobby entries with an EXHOBBY gallery.
 // Reuses the browser session and native templates saved by v2.3.
 // No Hpoi token is stored or sent to EXHOBBY.
@@ -158,7 +158,7 @@
     var previous = read("verify-notice"), now = Date.now();
     if (previous && now - Number(previous.time) < VERIFY_COOLDOWN) return;
     if (!save("verify-notice", { time: now })) {
-      log("v3.5.0 notice cooldown could not be saved");
+      log("v3.5.1 notice cooldown could not be saved");
     }
     var url = error.verificationURL;
     var title = "EXHOBBY 需要验证";
@@ -182,7 +182,7 @@
       } catch (_) {} finally {
         if (typeof clearTimeout === "function") clearTimeout(timer);
       }
-      log("v3.5.0 Bark delivery failed; falling back to Quantumult X notice");
+      log("v3.5.1 Bark delivery failed; falling back to Quantumult X notice");
     }
     if (typeof $notify === "function") {
       $notify(title, "打开 EXHOBBY 验证", message + "\n" + url);
@@ -374,6 +374,16 @@
     resetCounts(p);
     return p;
   }
+  function pictureRowObject(row, rank) {
+    var seed = read("seed:pic/list/relate-v2");
+    if (!seed || !seed.picture) throw new Error("picture template missing");
+    var picture = pictureObject(row);
+    var wrapper = seed.row ? copy(seed.row) : {};
+    wrapper.id = picture.id;
+    wrapper.rank = rank;
+    wrapper.pictureInfo = picture;
+    return wrapper;
+  }
   function reply(data) {
     done({ body: JSON.stringify({
       success: true, msg: "操作成功", code: 200, data: data
@@ -423,9 +433,9 @@
               /^https:\/\/www\.exhobby\.net\/picture\?link=/.test(url)) {
             save("all:" + Number(pageItem[1]) + ":gallery-link", verifyURL(url));
           }
-          log("v3.5.0 browser session saved; reopen Hpoi");
-        } else log("v3.5.0 browser session cache write failed");
-      } else log("v3.5.0 gallery loaded, but Cookie header missing; tap More in Safari");
+          log("v3.5.1 browser session saved; reopen Hpoi");
+        } else log("v3.5.1 browser session cache write failed");
+      } else log("v3.5.1 gallery loaded, but Cookie header missing; tap More in Safari");
     }
     done();
     return true;
@@ -469,7 +479,7 @@
       var title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
       var heading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
       var item = html.match(/\bquery\s*\.\s*item\s*=\s*["']?(\d+)/i);
-      log("v3.5.0 " + stage + " title=" + label(title && title[1]) +
+      log("v3.5.1 " + stage + " title=" + label(title && title[1]) +
         " h1=" + label(heading && heading[1]) +
         " figures=" + (html.match(/<figure\b/gi) || []).length +
         " images=" + (html.match(/<img\b/gi) || []).length +
@@ -500,7 +510,7 @@
         try { text = decodeURIComponent(encoded); }
         catch (_) { throw new Error(stage + " invalid UTF-8 bodyBytes"); }
       }
-      log("v3.5.0 " + stage + " HTTP=" + response.statusCode +
+      log("v3.5.1 " + stage + " HTTP=" + response.statusCode +
         " body=" + (text === null ? "missing" : text.length) +
         " type=" + (header(response, "content-type") || "unknown"));
       if (text === null || !text.trim()) {
@@ -553,7 +563,7 @@
         var status = Number(response.statusCode);
         if ([301, 302, 303, 307, 308].indexOf(status) >= 0) {
           url = safeURL(header(response, "location"));
-          log("v3.5.0 " + stage + " redirect=" + url.split("?")[0]);
+          log("v3.5.1 " + stage + " redirect=" + url.split("?")[0]);
           if (status === 303 || ((status === 301 || status === 302) && method === "POST")) {
             method = "GET"; body = "";
           }
@@ -595,7 +605,7 @@
       if (!rows.length) {
         throw new Error("fresh first HTML has no gallery pictures; see title/redirect above");
       }
-      log("v3.5.0 first HTML count=" + rows.length);
+      log("v3.5.1 first HTML count=" + rows.length);
       return rows;
     }
     async function bootstrap(ticket) {
@@ -615,7 +625,7 @@
       }
       galleryURL = url;
       save("gallery-link", url);
-      log("v3.5.0 fresh map.url ready; preview list not used");
+      log("v3.5.1 fresh map.url ready; preview list not used");
       firstRows = parseFirst(await request(url, "GET", "", "first HTML", ticket));
     }
     return {
@@ -626,7 +636,7 @@
           "page=" + page + "&item=" + ITEM + "&type=all", "page " + page, ticket);
         var list = parseJSON(text, "page " + page);
         if (!Array.isArray(list)) throw new Error("page " + page + " response is not an array");
-        log("v3.5.0 page=" + page + " count=" + list.length);
+        log("v3.5.1 page=" + page + " count=" + list.length);
         return list;
       }
     };
@@ -636,7 +646,7 @@
     return new Promise(function (resolve, reject) {
       var finished = false;
       var timer = setTimeout(function () {
-        finish(new Error("v3.5.0 page=" + page + " timeout; refresh to resume"));
+        finish(new Error("v3.5.1 page=" + page + " timeout; refresh to resume"));
       }, milliseconds);
       function finish(error, value) {
         if (finished) return;
@@ -670,7 +680,7 @@
       var firstSignature = first.map(function (r) { return r.path; }).join("|");
       if (work.next > 1 && work.first !== firstSignature) {
         work = { version: 30, started: now, next: 1, rows: [], last: "", first: "" };
-        log("v3.5.0 first page changed; restarting pagination");
+        log("v3.5.1 first page changed; restarting pagination");
       }
       work.first = firstSignature;
       var paths = Object.create(null), ids = Object.create(null);
@@ -745,7 +755,7 @@
         }
         output = changeRequest(proxyChanges);
         ctx.remapped = true;
-        log("v3.5.0 normal album proxy remapped to native route");
+        log("v3.5.1 normal album proxy remapped to native route");
       } else if (v) {
         var seed = read("seed:" + endpoint);
         if (!seed || !seed.p) throw new Error("open a normal Hpoi album first");
@@ -767,7 +777,7 @@
               !changes[k]) {
             if (!safeId) throw new Error("native album template has no safe ID field");
             changes[k] = safeId;
-            log("v3.5.0 remap request field " + k + " via template ID");
+            log("v3.5.1 remap request field " + k + " via template ID");
           }
         });
         output = changeRequest(changes);
@@ -819,8 +829,7 @@
         if (!Number.isInteger(page) || !Number.isInteger(size)) return errorReply();
         var start = (page - 1) * size;
         var pictures = g.rows.slice(start, start + size).map(function (r, i) {
-          var picture = pictureObject(r);
-          return { id: picture.id, rank: start + i + 1, pictureInfo: picture };
+          return pictureRowObject(r, start + i + 1);
         });
         log("native page=" + page + " count=" + pictures.length + " total=" + g.rows.length);
         return reply({ list: pictures });
@@ -852,9 +861,15 @@
     }
     if (endpoint === "pic/list/relate-v2" && Array.isArray(doc.data.list) &&
         doc.data.list.length && doc.data.list[0].pictureInfo) {
-      var picture = copy(doc.data.list[0].pictureInfo);
+      var nativeRow = copy(doc.data.list[0]);
+      var picture = copy(nativeRow.pictureInfo);
       picture.relate = []; delete picture.user;
-      save("seed:pic/list/relate-v2", { p: ctx.p, picture: picture });
+      nativeRow.pictureInfo = picture;
+      save("seed:pic/list/relate-v2", {
+        p: ctx.p, picture: picture, row: nativeRow
+      });
+      log("native picture row template ready" +
+        (nativeRow.subType != null ? " subType=" + nativeRow.subType : ""));
     }
     if (endpoint === "hobby/album" && ITEM && Number(ctx.p.id) === ITEM &&
         Math.max(1, Number(ctx.p.page) || 1) === 1 && Array.isArray(doc.data.list)) {
@@ -868,7 +883,7 @@
       doc.data.list = doc.data.list.filter(function (a) {
         return Number(a && a.id) !== ALBUM && Number(a && a.itemId) !== ALBUM;
       });
-      // v3.5.0: never reserve, proxy, or rewrite any native Hpoi album.
+      // v3.5.1: never reserve, proxy, or rewrite any native Hpoi album.
       // EXHOBBY lives on its own synthetic route; all native albums remain byte-for-byte native.
       doc.data.list.unshift(albumObject(gallery, null, ALBUM));
       log("dedicated EXHOBBY entry added; native Hpoi albums untouched; total=" +
@@ -878,7 +893,7 @@
     done();
   }
   main().catch(function (e) {
-    log("v3.5.0 " + (e && e.message ? e.message : "operation failed"));
+    log("v3.5.1 " + (e && e.message ? e.message : "operation failed"));
     Promise.resolve().then(function () {
       if (e && e.verificationURL) return notifyVerification(e);
     }).catch(function () {}).then(function () {
