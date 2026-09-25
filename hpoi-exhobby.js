@@ -384,6 +384,19 @@
     wrapper.pictureInfo = picture;
     return wrapper;
   }
+  function savePictureRowSeed(p, nativeRow) {
+    if (!nativeRow || !nativeRow.pictureInfo) return false;
+    var row = copy(nativeRow);
+    var picture = copy(row.pictureInfo);
+    picture.relate = []; delete picture.user;
+    row.pictureInfo = picture;
+    var ok = save("seed:pic/list/relate-v2", {
+      p: p || {}, picture: picture, row: row
+    });
+    if (ok) log("native picture row template ready" +
+      (row.subType != null ? " subType=" + row.subType : ""));
+    return ok;
+  }
   function reply(data) {
     done({ body: JSON.stringify({
       success: true, msg: "操作成功", code: 200, data: data
@@ -824,6 +837,10 @@
         return errorReply();
       }
       if (endpoint === "pic/list/relate-v2") {
+        if (doc.data && Array.isArray(doc.data.list) && doc.data.list.length &&
+            doc.data.list[0] && doc.data.list[0].pictureInfo) {
+          savePictureRowSeed(ctx.p, doc.data.list[0]);
+        }
         var page = Math.max(1, Number(ctx.p.page) || 1);
         var size = Math.max(1, Number(ctx.p.pageSize) || 20);
         if (!Number.isInteger(page) || !Number.isInteger(size)) return errorReply();
@@ -861,15 +878,7 @@
     }
     if (endpoint === "pic/list/relate-v2" && Array.isArray(doc.data.list) &&
         doc.data.list.length && doc.data.list[0].pictureInfo) {
-      var nativeRow = copy(doc.data.list[0]);
-      var picture = copy(nativeRow.pictureInfo);
-      picture.relate = []; delete picture.user;
-      nativeRow.pictureInfo = picture;
-      save("seed:pic/list/relate-v2", {
-        p: ctx.p, picture: picture, row: nativeRow
-      });
-      log("native picture row template ready" +
-        (nativeRow.subType != null ? " subType=" + nativeRow.subType : ""));
+      savePictureRowSeed(ctx.p, doc.data.list[0]);
     }
     if (endpoint === "hobby/album" && ITEM && Number(ctx.p.id) === ITEM &&
         Math.max(1, Number(ctx.p.page) || 1) === 1 && Array.isArray(doc.data.list)) {
