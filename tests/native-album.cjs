@@ -70,11 +70,12 @@ const unwrap=r=>JSON.parse(r.body).data;
   h.end(ja,{success:true,data:{list:[albumFor(A),secondAlbumFor(A)]}})
  ]);
  const homeA=unwrap(ra).list[0],homeB=unwrap(rb).list[0];
- assert.equal(homeA.id,albumFor(A).itemId,'dedicated entry uses a real native route');
- assert.equal(homeB.id,albumFor(B).itemId,'each entry reserves its own native route');
- assert.equal(homeA.itemId,homeA.id);
- assert.equal(homeB.itemId,homeB.id);
- assert(homeA.id!==homeB.id,'different item entries cannot share a route');
+ assert.equal(homeA.id,1000000000+A,'dedicated card gets its own object id');
+ assert.equal(homeB.id,1000000000+B,'different dedicated cards get separate local object ids');
+ assert.equal(homeA.itemId,albumFor(A).itemId,'dedicated entry keeps the real Hpoi navigation route');
+ assert.equal(homeB.itemId,albumFor(B).itemId,'each entry keeps its own native navigation route');
+ assert.notEqual(homeA.id,homeA.itemId,'object id stays separate from navigation route');
+ assert(homeA.id!==homeB.id,'different item entries cannot share an object id');
  assert.equal(unwrap(ra).list[0].picCount,45);assert.equal(unwrap(rb).list[0].picCount,27);
  assert.equal(unwrap(ra).list[0].cover,'/__exhobby__/2026/09/'+A+'-0.jpg');
  assert.equal(unwrap(rb).list[0].cover,'/__exhobby__/2026/09/'+B+'-0.jpg');
@@ -113,12 +114,14 @@ const unwrap=r=>JSON.parse(r.body).data;
  let inside=harness();await inside.metadata(A);
  const insideList=unwrap(await inside.load(A)).list;
  const insideHome=insideList[0],proxiedNormal=insideList[1],untouchedNormal=insideList[2];
- assert.equal(insideHome.id,seedAlbum.id,
-   'dedicated entry preserves the native album object id');
+ assert.equal(insideHome.id,1000000000+A,
+   'dedicated entry uses a unique local object id');
  assert.equal(insideHome.itemId,seedAlbum.itemId,
-   'dedicated entry keeps only the actual native route field');
+   'dedicated entry keeps the actual native navigation route');
  assert.notEqual(insideHome.id,insideHome.itemId,
-   'dedicated card must preserve distinct id semantics');
+   'dedicated card separates object identity from navigation identity');
+ assert.equal(proxiedNormal.id,seedAlbum.id,
+   'displaced normal album preserves its original object id');
  assert.equal(insideHome.cover,'/__exhobby__/2026/09/'+A+'-0.jpg','homepage card uses the first real EXHOBBY photo');
  const normalPicture={id:901,itemId:902,itemType:'pic',categoryId:6,path:'normal-inside.jpg',name:'Normal picture'};
  let dedicatedPage=unwrap(await inside.rt('pic/list/relate-v2',
