@@ -2,13 +2,22 @@
 
 在 Hpoi iOS App 的手办词条相册列表中添加「EXHOBBY 相册」入口，点击后通过 Hpoi 原生相册查看图片。
 
-当前版本：**v3.4.1**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。外层详情页只添加相册入口，不插入预览图片网格。EXHOBBY 相册列表使用单独设计的标识封面，进入相册后仍显示各词条自己的图库图片。
+当前版本：**v3.4.2**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。词条首页保留独立「EXHOBBY 相册」入口；普通 Hpoi 相册内直接插入 EXHOBBY 实图，不再插入单独的标识封面。
+
+## v3.4.2 首页相册与无封面图片序列
+
+- 修复部分 Hpoi 版本中，词条首页的独立「EXHOBBY 相册」仍无法打开、只有普通相册内图片序列可用的问题。
+- 首页入口现在使用双通道路由：保留唯一的本地合成 `id`，同时保留一个真实普通相册的 `itemId` 作为兼容后备。客户端无论读取哪种字段，都能进入可用的图片查看链路。
+- 首页 EXHOBBY 相册卡片改用当前图库第一张实图作为预览图，不再使用 EXHOBBY 标识封面。
+- 普通 Hpoi 相册第一页直接返回「完整 EXHOBBY 图片序列 + 原 Hpoi 图片」，彻底删除 v3.4.1 插入的 EXHOBBY 封面项。
+- 原 Hpoi 图片不会被替换或删除；EXHOBBY 图片只在第一页插入，后续分页不会重复出现。
+- 升级不需要清除图库缓存、年龄验证 Cookie 或重新初始化模板。
 
 ## v3.4.1 相册内查看链路修复
 
 - 修复 v3.4.0 在普通 Hpoi 相册中只插入一张 EXHOBBY 封面、点击后只能把它当作普通单图查看的问题。
 - Hpoi 的图片列表不会按返回数据里的 `itemType=album` 执行跨相册跳转，因此 v3.4.1 不再依赖这一无效点击路径。
-- 普通相册第一页现在返回「EXHOBBY 标识封面 + 当前词条完整 EXHOBBY 图片序列 + 原 Hpoi 图片」。点击封面进入原生查看器后，继续滑动即可查看全部 EXHOBBY 图片。
+- v3.4.1 的普通相册第一页返回「EXHOBBY 标识封面 + 当前词条完整 EXHOBBY 图片序列 + 原 Hpoi 图片」；该封面项已在 v3.4.2 移除。
 - 原 Hpoi 图片不会被替换或删除；EXHOBBY 序列只在第一页注入，后续分页不会重复出现。
 - 外层词条相册列表中的独立「EXHOBBY 相册」入口保持不变，仍可直接进入虚拟相册。
 
@@ -53,8 +62,8 @@
 - 从当前 Hpoi 词条识别 EXHOBBY 图库，无需逐个填写条目 ID。
 - 获取图库第一页及后续分页，收到空数组后才标记抓取完成，不把六张预览图当作完整图库。
 - 在原有相册列表中添加入口，保留 Hpoi 自带相册。
-- 在每个属于当前词条的普通 Hpoi 相册第一页顶部添加 EXHOBBY 封面及完整图片序列，原相册图片保持不变。
-- EXHOBBY 相册的预览封面明确写有「EXHOBBY」，不同词条使用同一张标识封面；图库内图片不添加水印。
+- 在每个属于当前词条的普通 Hpoi 相册第一页顶部直接添加完整 EXHOBBY 图片序列，原相册图片保持不变。
+- 词条首页 EXHOBBY 相册使用该图库第一张实图作为预览；图库图片不添加水印。
 - 支持原生相册分页、不同词条之间的缓存隔离和中断后继续获取。
 - 沿用 v2.3 已保存的浏览器会话和原生相册模板。
 - 只有在缺少会话或网站明确返回年龄／人机验证页面时通知，45 分钟内不重复提醒；已有 Cookie 仍可使用时自动复用。
@@ -74,7 +83,7 @@
 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.snippet, tag=HPOI_EXHOBBY, enabled=true
 ```
 
-保存并更新远程资源，确认资源成功加载九条重写规则。EXHOBBY 主脚本使用带 `v=3.4.1` 标记的地址，避免继续使用旧脚本缓存；开屏广告清理脚本仍可使用其独立缓存版本。订阅同时引用 `assets/exhobby-cover-v3.2.png`，无需额外保存同名本地脚本。
+保存并更新远程资源，确认资源成功加载九条重写规则。EXHOBBY 主脚本使用带 `v=3.4.2` 标记的地址，避免继续使用旧脚本缓存；开屏广告清理脚本仍可使用其独立缓存版本。旧标识封面资产仅为兼容 v3.4.1 缓存保留，v3.4.2 不再把它插入任何相册。
 
 如果通过圈叉的重写资源界面添加，资源地址填写上面的订阅链接。配置行用于 `[rewrite_remote]`，不要把仓库首页链接或 JS 文件链接当作重写订阅地址。
 
@@ -155,6 +164,8 @@ host-suffix, hpoi.net, direct
 
 从 v3.1 或更早版本升级时，仍需确认主脚本、两份重写配置以及 `assets/exhobby-cover-v3.2.png` 都已在仓库中；封面规则必须排在 EXHOBBY 图片通用跳转规则之前。
 
+从 v3.4.1 升级到 v3.4.2 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源。确认主脚本地址带 `hpoi-exhobby.js?v=3.4.2`，再彻底结束 Hpoi 并重新打开。已有图库缓存、普通相册映射和浏览器验证会话都会保留；普通相册内不再显示 EXHOBBY 封面项。
+
 从 v3.4.0 升级到 v3.4.1 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源。主脚本地址应更新为 `hpoi-exhobby.js?v=3.4.1`；图库缓存、普通相册映射及浏览器验证会话都会保留。打开普通相册后，点击顶部 EXHOBBY 封面并继续滑动即可查看完整图库。
 
 从 v3.3.3 升级到 v3.4.0 时，只需更新圈叉里的 `HPOI_EXHOBBY` 远程资源。主脚本地址应更新为 `hpoi-exhobby.js?v=3.4.0`。进入词条一次以建立普通相册到词条的映射，之后打开该词条任意普通相册即可看到 EXHOBBY 入口。
@@ -169,11 +180,11 @@ host-suffix, hpoi.net, direct
 
 ## 本地安装（备选）
 
-如果需要使用本地文件，将 [`hpoi-exhobby.js`](hpoi-exhobby.js) 和 [`hpoi-ad-sanitize.js`](hpoi-ad-sanitize.js) 保存为 Quantumult X 可识别的本地脚本，并将 [`hpoi-exhobby.local.conf`](hpoi-exhobby.local.conf) 中的规则合并到现有 `[rewrite_local]` 段，同时保留上述 MITM 设置。标识封面通过公开 Raw 链接加载，图片资产仍需上传到仓库。
+如果需要使用本地文件，将 [`hpoi-exhobby.js`](hpoi-exhobby.js) 和 [`hpoi-ad-sanitize.js`](hpoi-ad-sanitize.js) 保存为 Quantumult X 可识别的本地脚本，并将 [`hpoi-exhobby.local.conf`](hpoi-exhobby.local.conf) 中的规则合并到现有 `[rewrite_local]` 段，同时保留上述 MITM 设置。
 
 本地配置文件是配置片段，不要用它覆盖整份圈叉配置。本地和远程两种安装方式选择一种，避免两套规则同时执行。
 
-脚本原文地址：[hpoi-exhobby.js](https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js)。正常脚本以 `// Hpoi + EXHOBBY native album v3.3` 开头；`Unsupported Media Type`、HTML 错误页和 Markdown 代码围栏都不能作为 JavaScript 保存。
+脚本原文地址：[hpoi-exhobby.js](https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.js)。当前脚本以 `// Hpoi + EXHOBBY native album v3.4.2` 开头；`Unsupported Media Type`、HTML 错误页和 Markdown 代码围栏都不能作为 JavaScript 保存。
 
 ## 仓库文件与维护
 
@@ -187,7 +198,7 @@ host-suffix, hpoi.net, direct
 | `bark-setup.example.js` | 可选的一次性 Bark 本地配置模板；不要上传含个人密钥的副本 |
 | `hpoi-exhobby.snippet` | 远程重写订阅，引用主脚本并声明 MITM 域名 |
 | `hpoi-exhobby.local.conf` | 本地安装配置片段 |
-| `assets/exhobby-cover-v3.2.png` | 本项目原创的 EXHOBBY 相册列表标识封面 |
+| `assets/exhobby-cover-v3.2.png` | 仅用于兼容 v3.4.1 旧缓存；v3.4.2 不再插入该封面 |
 | `package.json` | 离线检查与测试命令 |
 | `tests/native-album.cjs` | EXHOBBY 原生相册离线模拟测试 |
 | `tests/ad-sanitize.cjs` | Hpoi 开屏广告响应清理离线测试 |
@@ -213,7 +224,7 @@ GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/wor
 | `EXHOBBY requires browser verification` | 网站明确返回了年龄／人机验证页面，点击 Bark 提醒中的网址并按网页提示操作。 |
 | `Bark delivery failed` | 推送服务器暂不可用，脚本已改发圈叉原生通知。 |
 | Safari 已验证但没有任何脚本日志 | 检查请求地址是否仍为 `http://www.exhobby.net`。v3.3 应先命中 `307` 规则并升级为 HTTPS；更新远程资源后重试。 |
-| EXHOBBY 相册封面未显示 | 检查 `assets/exhobby-cover-v3.2.png` 是否上传，以及封面 302 规则是否排在通用图片 302 规则之前；远程资源更新后再刷新 Hpoi。 |
+| 词条首页 EXHOBBY 相册无法打开 | 确认已更新到 `v3.4.2`，彻底结束 Hpoi 后重新进入词条；仍异常时提供 `album/detail` 与 `pic/list/relate-v2` 日志。 |
 | `empty/missing body; end NOT confirmed` | 本次响应缺失，不能当作图库结束；返回词条刷新重试。 |
 | `pagination timeout; refresh to resume` | 已保存本轮进度，返回词条刷新以继续抓取。 |
 | `page=N count=0` 后出现 `complete=true` | 收到了结束分页，完整元数据已经缓存。 |
@@ -223,7 +234,7 @@ GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/wor
 
 - 依赖 Hpoi 和 EXHOBBY 的现有接口、网页结构及图片域名；站点更新后可能需要调整。
 - 使用 Hpoi 原生相册样式，不修改 App 本身的页面布局。
-- 标识封面用于词条相册列表中的 EXHOBBY 相册，以及普通 Hpoi 相册第一页里的 EXHOBBY 入口；不会给原始照片添加角标；封面图片需经公开的 GitHub Raw 地址加载。
+- v3.4.2 不再把标识封面插入相册；词条首页卡片使用图库第一张实图，普通相册直接从第一张 EXHOBBY 图片开始。
 - EXHOBBY 相册及图片使用本地合成 ID；当前只适配浏览，收藏、点赞、评论等操作未适配。
 - 完整图库元数据缓存有效期为 10 分钟，未完成抓取的进度有效期为 2 分钟。已有浏览器会话会复用至网站明确要求重新验证；提醒的冷却时间为 45 分钟。
 - 当前没有自动清理全部旧条目与图片 ID 映射的功能；有效期不等于所有历史缓存都会被物理删除。
@@ -231,7 +242,7 @@ GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/wor
 
 ## 数据与隐私
 
-仓库只包含脚本、原创标识封面、规则、文档和使用假数据的测试，不附带实际抓包、账号凭据或图库图片。
+仓库只包含脚本、兼容旧版缓存的原创标识封面资产、规则、文档和使用假数据的测试，不附带实际抓包、账号凭据或图库图片。
 
 脚本通过 Quantumult X 本地偏好存储保存浏览器 Cookie、User-Agent、请求关联信息、原生模板、图库元数据和已访问图库的链接。EXHOBBY Cookie 仅用于 `www.exhobby.net` 的 HTTPS 请求；v3.3 会在会话捕获之前升级站点返回的旧 HTTP 链接。Cookie 不写入脚本文件、不打印到日志，也不上传 GitHub。Hpoi 的 `utoken` 不会被记录到脚本的请求关联缓存或转发给 EXHOBBY；原本发往 Hpoi 的 App 请求仍照常使用自己的凭据。
 
@@ -243,7 +254,7 @@ GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/wor
 
 2026-09-13 的另一台 iOS 16.7.16／Safari 16.6.2 设备实机请求确认：EXHOBBY 的「更多」分页仍可能使用 HTTP POST，且已携带 `is18=yes` 的年龄确认 Cookie；手动改用 HTTPS 后会话成功保存。v3.3 据此加入自动 `307` 升级。
 
-本仓库另有离线模拟测试，覆盖并发词条隔离、分页尾页、相册与图片导航、缓存复用、中断恢复、图片 ID 冲突、标识封面映射、验证提醒、凭据隔离，以及 HTTP 图库链接到 HTTPS 的 307 规则顺序与 URL 保真。测试不连接真实站点，不代表所有设备和站点状态均已验证。
+本仓库另有离线模拟测试，覆盖并发词条隔离、首页双通道路由、无封面图片序列、分页尾页、相册与图片导航、缓存复用、中断恢复、图片 ID 冲突、验证提醒、凭据隔离，以及 HTTP 图库链接到 HTTPS 的 307 规则顺序与 URL 保真。测试不连接真实站点，不代表所有设备和站点状态均已验证。
 
 安装 Node.js 后在仓库根目录执行，无需安装 npm 依赖：
 
