@@ -2,8 +2,8 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
-assert(script.startsWith('// Hpoi + EXHOBBY native album v3.5.6'));
-assert.equal(pkg.version,'3.5.6');
+assert(script.startsWith('// Hpoi + EXHOBBY native album v3.5.7'));
+assert.equal(pkg.version,'3.5.7');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
@@ -113,8 +113,10 @@ const unwrap=r=>JSON.parse(r.body).data;
  const nativePicsOut=await h.end(nativePicsJob,{success:true,data:{list:[
    {id:991,rank:1,subType:7,pictureInfo:{id:991,itemId:992,itemType:'pic',path:'native-proxy.jpg'}}
  ]}});
- assert.equal(JSON.stringify(nativePicsOut),'{}',
-   'native picture response stays untouched after request-side itemId remap');
+ const nativePicsData=unwrap(nativePicsOut).list;
+ assert.equal(nativePicsData.filter(r=>String(r.pictureInfo&&r.pictureInfo.path||'').startsWith('/__exhobby__/')).length,45,
+   'proxied native album first page also receives EXHOBBY rows');
+ assert.equal(nativePicsData.at(-1).pictureInfo.path,'native-proxy.jpg');
  assert.equal(listA[1].id,albumFor(A).id,
    'proxied native album keeps its original id');
  assert.notEqual(listA[1].itemId,albumFor(A).itemId,
@@ -157,14 +159,25 @@ const unwrap=r=>JSON.parse(r.body).data;
  assert.equal(JSON.stringify(await h.rt('album/detail','itemId='+albumFor(A).itemId+'&itemType=album',
    {success:true,data:{album:albumFor(A)}})),'{}',
    'native album detail is passed through untouched');
- assert.equal(JSON.stringify(await h.rt('pic/list/relate-v2',
+ const nativeFirst=unwrap(await h.rt('pic/list/relate-v2',
    'itemId='+albumFor(A).itemId+'&itemType=album&page=1&pageSize=20',
-   {success:true,data:{list:[{id:901,rank:1,pictureInfo:{id:901,itemId:902,itemType:'pic',path:'normal.jpg'}}]}})),'{}',
-   'native album picture list is passed through untouched');
- assert.equal(JSON.stringify(await h.rt('pic/list/relate-v2',
+   {success:true,data:{list:[{id:901,rank:1,subType:7,pictureInfo:{id:901,itemId:902,itemType:'pic',path:'normal.jpg'}}]}})).list;
+ assert.equal(nativeFirst.filter(r=>String(r.pictureInfo&&r.pictureInfo.path||'').startsWith('/__exhobby__/')).length,45,
+   'first native album page receives the full EXHOBBY gallery');
+ assert.equal(nativeFirst.at(-1).pictureInfo.path,'normal.jpg',
+   'native picture remains after injected EXHOBBY rows');
+
+ const otherFirst=unwrap(await h.rt('pic/list/relate-v2',
    'itemId='+secondAlbumFor(A).itemId+'&itemType=album&page=1&pageSize=20',
-   {success:true,data:{list:[{id:903,rank:1,pictureInfo:{id:903,itemId:904,itemType:'pic',path:'normal2.jpg'}}]}})),'{}',
-   'every other native album picture list stays untouched');
+   {success:true,data:{list:[{id:903,rank:1,subType:7,pictureInfo:{id:903,itemId:904,itemType:'pic',path:'normal2.jpg'}}]}})).list;
+ assert.equal(otherFirst.filter(r=>String(r.pictureInfo&&r.pictureInfo.path||'').startsWith('/__exhobby__/')).length,45,
+   'every other native album first page receives the same EXHOBBY gallery');
+ assert.equal(otherFirst.at(-1).pictureInfo.path,'normal2.jpg');
+
+ assert.equal(JSON.stringify(await h.rt('pic/list/relate-v2',
+   'itemId='+secondAlbumFor(A).itemId+'&itemType=album&page=2&pageSize=20',
+   {success:true,data:{list:[{id:905,rank:21,subType:7,pictureInfo:{id:905,itemId:906,itemType:'pic',path:'normal2-page2.jpg'}}]}})),'{}',
+   'later native pages stay untouched and do not repeat EXHOBBY rows');
 
  const count=h.calls.length;await h.load(A);assert.equal(h.calls.length,count,'A cache is reused separately');
  assert(!JSON.stringify([...h.prefs]).includes('HPOI_PRIVATE_TOKEN'));
