@@ -2,8 +2,8 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
-assert(script.startsWith('// Hpoi + EXHOBBY native album v3.6.0'));
-assert.equal(pkg.version,'3.6.0');
+assert(script.startsWith('// Hpoi + EXHOBBY native album v3.6.1'));
+assert.equal(pkg.version,'3.6.1');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
@@ -256,6 +256,31 @@ const unwrap=r=>JSON.parse(r.body).data;
   assert.equal(pushFailed.notices.length,1,'failed Bark delivery falls back to Quantumult X');
   assert(pushFailed.notices[0][2].includes('https://www.exhobby.net/search'),'unknown galleries open the search page');
 
+ // Seven-day cache GC: stale items and stale albums are purged independently.
+ let gc=harness();
+ const now=Date.now(),day=86400000,oldItem=98765432,staleAlbum=7654321,freshAlbum=7654322;
+ gc.prefs.set(NS+'all:'+A+':gallery',JSON.stringify({version:30,complete:true,time:now,rows:rows[A]}));
+ gc.prefs.set(NS+'cache-index',JSON.stringify({
+  [A]:{last:now-day,albums:[staleAlbum,freshAlbum],albumLast:{[staleAlbum]:now-8*day,[freshAlbum]:now-day},images:[],routes:[]},
+  [oldItem]:{last:now-8*day,albums:[],albumLast:{},images:[],routes:[]}
+ }));
+ gc.prefs.set(NS+'album-gallery:'+A+':'+staleAlbum,JSON.stringify({version:31,complete:true,time:now,rows:[{id:1,path:'old/stale.jpg'}],scoped:true}));
+ gc.prefs.set(NS+'album-gallery:'+A+':'+freshAlbum,JSON.stringify({version:31,complete:true,time:now,rows:[{id:2,path:'fresh/keep.jpg'}],scoped:true}));
+ gc.prefs.set(NS+'album-owner:'+staleAlbum,JSON.stringify({item:A,itemId:staleAlbum}));
+ gc.prefs.set(NS+'album-owner:'+freshAlbum,JSON.stringify({item:A,itemId:freshAlbum}));
+ await gc.run({url:'https://www.hpoi.net.cn/api/hobby/album?platform=ios',method:'POST',sessionIndex:998,
+  body:'id='+A+'&page=1&pageSize=10',headers:{'Content-Type':'application/x-www-form-urlencoded'}});
+ const gcIndex=JSON.parse(gc.prefs.get(NS+'cache-index'));
+ assert(!gcIndex[String(oldItem)],'items not viewed for 7 days are automatically purged');
+ assert(!gcIndex[String(A)].albums.includes(staleAlbum),'albums not viewed for 7 days are automatically purged');
+ assert(gcIndex[String(A)].albums.includes(freshAlbum),'recent albums remain cached');
+ assert(gc.logs.some(line=>line.includes('cache GC checked')&&line.includes('staleItems=1')&&line.includes('staleAlbums=1')),
+  'automatic GC logs each real check');
+
+ const statusResult=await gc.run({url:'https://www.exhobby.net/__hpoi_cache_status__',method:'GET',sessionIndex:997,headers:{}},{statusCode:404,body:'not found'});
+ assert(String(statusResult.body||'').includes('EXHOBBY 缓存状态'),'cache status page is available');
+ assert(String(statusResult.body||'').includes('超过 7 天未看的相册'),'cache status reports 7-day album retention');
+
  // Deliberately occupy a picture hash ID; the probe must choose another ID.
  const collision=harness();await collision.metadata(A);await collision.load(A);
  let hash=2166136261;for(const c of rows[A][0].path)hash=Math.imul(hash^c.charCodeAt(0),16777619)>>>0;
@@ -270,9 +295,9 @@ const unwrap=r=>JSON.parse(r.body).data;
   const capture=rules.findIndex(line=>line.includes('url script-response-body')&&line.includes('www\\.exhobby\\.net/picture'));
   assert(upgrade>=0&&capture>upgrade,file+' must upgrade HTTP before HTTPS session capture');
   if(file==='hpoi-exhobby.snippet'){
-   const remoteScripts=rules.filter(line=>line.includes('url script-')&&line.includes('hpoi-exhobby-v3.6.0.js'));
-   assert(remoteScripts.length>=4&&remoteScripts.every(line=>line.includes('hpoi-exhobby-v3.6.0.js')),
-    'remote EXHOBBY scripts must use the versioned v3.6.0 runtime');
+   const remoteScripts=rules.filter(line=>line.includes('url script-')&&line.includes('hpoi-exhobby-v3.6.1.js'));
+   assert(remoteScripts.length>=4&&remoteScripts.every(line=>line.includes('hpoi-exhobby-v3.6.1.js')),
+    'remote EXHOBBY scripts must use the versioned v3.6.1 runtime');
   }
   const [upgradeSource,upgradeTarget]=rules[upgrade].split(' url 307 ');
   const upgradePattern=new RegExp(upgradeSource);
