@@ -163,8 +163,9 @@
       "<title>HPOI EXHOBBY Cache</title><body style=\"font-family:-apple-system;padding:32px;line-height:1.6\">" +
       "<h2>EXHOBBY 缓存已清理</h2><p>已清理 " + removed +
       " 个已跟踪运行缓存项。</p><p>Safari 年龄验证会话和通知设置已保留。</p></body>";
-    done({ body: body, headers: { "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-store" } });
+    done({ status: "HTTP/1.1 200 OK", body: body,
+      headers: { "Content-Type": "text/html; charset=utf-8",
+        "Cache-Control": "no-store" } });
     return true;
   }
   function routeFieldHints() {
