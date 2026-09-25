@@ -250,9 +250,9 @@ const unwrap=r=>JSON.parse(r.body).data;
   const capture=rules.findIndex(line=>line.includes('url script-response-body')&&line.includes('www\\.exhobby\\.net/picture'));
   assert(upgrade>=0&&capture>upgrade,file+' must upgrade HTTP before HTTPS session capture');
   if(file==='hpoi-exhobby.snippet'){
-   const remoteScripts=rules.filter(line=>line.includes('url script-')&&line.includes('hpoi-exhobby.js'));
-   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.5.3')),
-    'remote EXHOBBY scripts must bypass the prior URL cache');
+   const remoteScripts=rules.filter(line=>line.includes('url script-')&&line.includes('hpoi-exhobby-v3.5.9.js'));
+   assert(remoteScripts.length>=4&&remoteScripts.every(line=>line.includes('hpoi-exhobby-v3.5.9.js')),
+    'remote EXHOBBY scripts must use the versioned v3.5.9 runtime');
   }
   const [upgradeSource,upgradeTarget]=rules[upgrade].split(' url 307 ');
   const upgradePattern=new RegExp(upgradeSource);
@@ -280,9 +280,9 @@ const unwrap=r=>JSON.parse(r.body).data;
   'HPOI hosts must not be in the ad subscription: force-policy=reject would block them');
  const cover=fs.readFileSync(path.join(__dirname,'..','assets/exhobby-cover-v3.2.png'));
  assert.equal(cover.subarray(0,8).toString('hex'),'89504e470d0a1a0a','cover is a PNG');
- console.log('PASS: concurrent/out-of-order entries, dedicated native routes, EXHOBBY pagination, and photo navigation.');
+ console.log('PASS: concurrent/out-of-order entries, unique EXHOBBY routes, scoped album galleries, pagination, and photo navigation.');
  console.log('PASS: existing session/templates reused, global ID fallback, empty entries, failure isolation/resumption, and ID collision handling.');
-  console.log('PASS: only the dedicated EXHOBBY entry exposes gallery photos; normal Hpoi albums stay unchanged.');
+  console.log('PASS: native Hpoi albums receive only their own EXHOBBY scoped galleries; later pages stay native.');
   console.log('PASS: age reminders, accepted old cookies, notification cooldown, saved gallery links and optional Bark privacy.');
   console.log('PASS: v3.3 upgrades legacy HTTP gallery URLs with POST-preserving 307 rules before session capture.');
   console.log('PASS: v3.3.1 keeps third-party ad SDK hosts out of MITM and HPOI core hosts out of force-policy=reject subscriptions.');
