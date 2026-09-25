@@ -1,4 +1,4 @@
-// Hpoi + EXHOBBY native album v3.3.3 — Quantumult X
+// Hpoi + EXHOBBY native album v3.4.0 — Quantumult X
 // Automatically handles hobby entries with an EXHOBBY gallery.
 // Reuses the browser session and native templates saved by v2.3.
 // No Hpoi token is stored or sent to EXHOBBY.
@@ -40,6 +40,33 @@
   function save(key, value) {
     return $prefs.setValueForKey(JSON.stringify(value), storageKey(key));
   }
+  function saveRaw(key, value) {
+    return $prefs.setValueForKey(JSON.stringify(value), NS + key);
+  }
+  function readRaw(key) {
+    try { return JSON.parse($prefs.valueForKey(NS + key) || "null"); }
+    catch (_) { return null; }
+  }
+  function rememberAlbumParents(list, item) {
+    if (!validItem(Number(item)) || !Array.isArray(list)) return;
+    list.forEach(function (album) {
+      ["id", "itemId", "albumId"].forEach(function (k) {
+        var n = Number(album && album[k]);
+        if (Number.isInteger(n) && n > 0 && n < ALBUM_BASE && n !== Number(item)) {
+          saveRaw("album-parent:" + n, { item: Number(item), time: Date.now() });
+        }
+      });
+    });
+  }
+  function parentItemForRequest(p) {
+    for (var i = 0; i < ID_FIELDS.length; i++) {
+      var n = Number(p[ID_FIELDS[i]]);
+      if (!Number.isInteger(n) || n <= 0 || n >= ALBUM_BASE) continue;
+      var parent = readRaw("album-parent:" + n);
+      if (parent && validItem(Number(parent.item))) return Number(parent.item);
+    }
+    return 0;
+  }
   function verifyURL(value) {
     var url = String(value || "");
     var gallery = /^https:\/\/www\.exhobby\.net\/picture\?[^\s#]+$/i.test(url) &&
@@ -64,7 +91,7 @@
     var previous = read("verify-notice"), now = Date.now();
     if (previous && now - Number(previous.time) < VERIFY_COOLDOWN) return;
     if (!save("verify-notice", { time: now })) {
-      log("v3.3.3 notice cooldown could not be saved");
+      log("v3.4.0 notice cooldown could not be saved");
     }
     var url = error.verificationURL;
     var title = "EXHOBBY 需要验证";
@@ -88,7 +115,7 @@
       } catch (_) {} finally {
         if (typeof clearTimeout === "function") clearTimeout(timer);
       }
-      log("v3.3.3 Bark delivery failed; falling back to Quantumult X notice");
+      log("v3.4.0 Bark delivery failed; falling back to Quantumult X notice");
     }
     if (typeof $notify === "function") {
       $notify(title, "打开 EXHOBBY 验证", message + "\n" + url);
@@ -270,6 +297,22 @@
     resetCounts(p);
     return p;
   }
+  function albumEntryPicture(gallery) {
+    var seed = read("seed:pic/list/relate-v2");
+    if (!seed || !seed.picture) throw new Error("picture template missing");
+    var p = copy(seed.picture);
+    p.id = p.itemId = ALBUM;
+    p.itemType = "album";
+    p.path = "/__exhobby__/cover-v3.2.png";
+    p.r18 = Math.max(20, Number(p.r18) || 0);
+    p.original = 0; p.originalPainting = false; p.relate = [];
+    p.width = 1000; p.height = 1000; p.size = 0;
+    if ("name" in p) p.name = "EXHOBBY 相册";
+    if ("nameCN" in p) p.nameCN = "EXHOBBY 相册";
+    if ("detail" in p) p.detail = "EXHOBBY 相册，共 " + gallery.rows.length + " 张图片";
+    resetCounts(p);
+    return { id: ALBUM, rank: 0, pictureInfo: p };
+  }
   function reply(data) {
     done({ body: JSON.stringify({
       success: true, msg: "操作成功", code: 200, data: data
@@ -319,9 +362,9 @@
               /^https:\/\/www\.exhobby\.net\/picture\?link=/.test(url)) {
             save("all:" + Number(pageItem[1]) + ":gallery-link", verifyURL(url));
           }
-          log("v3.3.3 browser session saved; reopen Hpoi");
-        } else log("v3.3.3 browser session cache write failed");
-      } else log("v3.3.3 gallery loaded, but Cookie header missing; tap More in Safari");
+          log("v3.4.0 browser session saved; reopen Hpoi");
+        } else log("v3.4.0 browser session cache write failed");
+      } else log("v3.4.0 gallery loaded, but Cookie header missing; tap More in Safari");
     }
     done();
     return true;
@@ -365,7 +408,7 @@
       var title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
       var heading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
       var item = html.match(/\bquery\s*\.\s*item\s*=\s*["']?(\d+)/i);
-      log("v3.3.3 " + stage + " title=" + label(title && title[1]) +
+      log("v3.4.0 " + stage + " title=" + label(title && title[1]) +
         " h1=" + label(heading && heading[1]) +
         " figures=" + (html.match(/<figure\b/gi) || []).length +
         " images=" + (html.match(/<img\b/gi) || []).length +
@@ -396,7 +439,7 @@
         try { text = decodeURIComponent(encoded); }
         catch (_) { throw new Error(stage + " invalid UTF-8 bodyBytes"); }
       }
-      log("v3.3.3 " + stage + " HTTP=" + response.statusCode +
+      log("v3.4.0 " + stage + " HTTP=" + response.statusCode +
         " body=" + (text === null ? "missing" : text.length) +
         " type=" + (header(response, "content-type") || "unknown"));
       if (text === null || !text.trim()) {
@@ -449,7 +492,7 @@
         var status = Number(response.statusCode);
         if ([301, 302, 303, 307, 308].indexOf(status) >= 0) {
           url = safeURL(header(response, "location"));
-          log("v3.3.3 " + stage + " redirect=" + url.split("?")[0]);
+          log("v3.4.0 " + stage + " redirect=" + url.split("?")[0]);
           if (status === 303 || ((status === 301 || status === 302) && method === "POST")) {
             method = "GET"; body = "";
           }
@@ -491,7 +534,7 @@
       if (!rows.length) {
         throw new Error("fresh first HTML has no gallery pictures; see title/redirect above");
       }
-      log("v3.3.3 first HTML count=" + rows.length);
+      log("v3.4.0 first HTML count=" + rows.length);
       return rows;
     }
     async function bootstrap(ticket) {
@@ -511,7 +554,7 @@
       }
       galleryURL = url;
       save("gallery-link", url);
-      log("v3.3.3 fresh map.url ready; preview list not used");
+      log("v3.4.0 fresh map.url ready; preview list not used");
       firstRows = parseFirst(await request(url, "GET", "", "first HTML", ticket));
     }
     return {
@@ -522,7 +565,7 @@
           "page=" + page + "&item=" + ITEM + "&type=all", "page " + page, ticket);
         var list = parseJSON(text, "page " + page);
         if (!Array.isArray(list)) throw new Error("page " + page + " response is not an array");
-        log("v3.3.3 page=" + page + " count=" + list.length);
+        log("v3.4.0 page=" + page + " count=" + list.length);
         return list;
       }
     };
@@ -532,7 +575,7 @@
     return new Promise(function (resolve, reject) {
       var finished = false;
       var timer = setTimeout(function () {
-        finish(new Error("v3.3.3 page=" + page + " timeout; refresh to resume"));
+        finish(new Error("v3.4.0 page=" + page + " timeout; refresh to resume"));
       }, milliseconds);
       function finish(error, value) {
         if (finished) return;
@@ -566,7 +609,7 @@
       var firstSignature = first.map(function (r) { return r.path; }).join("|");
       if (work.next > 1 && work.first !== firstSignature) {
         work = { version: 30, started: now, next: 1, rows: [], last: "", first: "" };
-        log("v3.3.3 first page changed; restarting pagination");
+        log("v3.4.0 first page changed; restarting pagination");
       }
       work.first = firstSignature;
       var paths = Object.create(null), ids = Object.create(null);
@@ -626,9 +669,15 @@
     if (!isResponse) {
       if (session == null) { log("request session unavailable"); return done(); }
       var p = params(), v = endpoint === "hobby/album" ? null : virtualItem(p);
+      var parentItem = 0;
       if (v) setTarget(v.item);
       else if (endpoint === "hobby/album") setTarget(p.id);
-      var ctx = { session: session, time: Date.now(), endpoint: endpoint, p: p, v: v, target: ITEM };
+      else if (endpoint === "album/detail" || endpoint === "pic/list/relate-v2") {
+        parentItem = parentItemForRequest(p);
+        if (parentItem) setTarget(parentItem);
+      }
+      var ctx = { session: session, time: Date.now(), endpoint: endpoint, p: p, v: v,
+        target: ITEM, parentItem: parentItem };
       var output = {};
       if (v) {
         var seed = read("seed:" + endpoint);
@@ -649,7 +698,7 @@
           if (p[k] && (nativeId === ALBUM || nativeId > PIC_BASE) && !changes[k]) {
             if (!safeId) throw new Error("native album template has no safe ID field");
             changes[k] = safeId;
-            log("v3.3.3 remap request field " + k + " via template ID");
+            log("v3.4.0 remap request field " + k + " via template ID");
           }
         });
         output = changeRequest(changes);
@@ -724,8 +773,23 @@
       picture.relate = []; delete picture.user;
       save("seed:pic/list/relate-v2", { p: ctx.p, picture: picture });
     }
+    if (endpoint === "pic/list/relate-v2" && ctx.parentItem &&
+        Math.max(1, Number(ctx.p.page) || 1) === 1 && Array.isArray(doc.data.list)) {
+      var parentGallery = read("gallery");
+      if (parentGallery && parentGallery.complete && parentGallery.version === 30 &&
+          Array.isArray(parentGallery.rows) && parentGallery.rows.length) {
+        doc.data.list = doc.data.list.filter(function (row) {
+          var info = row && row.pictureInfo;
+          return Number(row && row.id) !== ALBUM && Number(info && info.itemId) !== ALBUM;
+        });
+        doc.data.list.unshift(albumEntryPicture(parentGallery));
+        log("EXHOBBY entry added inside album; total=" + parentGallery.rows.length);
+        return done({ body: JSON.stringify(doc) });
+      }
+    }
     if (endpoint === "hobby/album" && ITEM && Number(ctx.p.id) === ITEM &&
         Math.max(1, Number(ctx.p.page) || 1) === 1 && Array.isArray(doc.data.list)) {
+      rememberAlbumParents(doc.data.list, ITEM);
       if (!read("seed:album/detail") || !read("seed:pic/list/relate-v2")) {
         log("initialization: open one normal Hpoi album, then reopen the hobby");
         return done();
@@ -741,7 +805,7 @@
     done();
   }
   main().catch(function (e) {
-    log("v3.3.3 " + (e && e.message ? e.message : "operation failed"));
+    log("v3.4.0 " + (e && e.message ? e.message : "operation failed"));
     Promise.resolve().then(function () {
       if (e && e.verificationURL) return notifyVerification(e);
     }).catch(function () {}).then(function () {
