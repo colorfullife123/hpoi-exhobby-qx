@@ -1,4 +1,4 @@
-// Hpoi + EXHOBBY native album v3.6.1 — Quantumult X
+// Hpoi + EXHOBBY native album v3.6.2 — Quantumult X
 // Automatically handles hobby entries with an EXHOBBY gallery.
 // Reuses the browser session and native templates saved by v2.3.
 // No Hpoi token is stored or sent to EXHOBBY.
@@ -131,7 +131,7 @@
         NS + "album-gallery:" + item + ":" + albumId) || "null");
       removed += removeGalleryImageMappings(scoped);
     } catch (_) {}
-    ["album-gallery:", "album-work:", "album-lock:"].forEach(function (prefix) {
+    ["album-gallery:", "album-work:", "album-lock:", "native-pages:"].forEach(function (prefix) {
       if ($prefs.removeValueForKey(NS + prefix + item + ":" + albumId)) removed++;
     });
     if ($prefs.removeValueForKey(NS + "album-owner:" + albumId)) removed++;
@@ -455,24 +455,87 @@
       Number(info && info.id) > PIC_BASE ||
       /^\/__exhobby__\//.test(String(info && info.path || ""));
   }
+  function nativePagesKey(albumItemId) {
+    return "native-pages:" + ITEM + ":" + albumItemId;
+  }
+  function cacheNativePicturePage(albumItemId, page, pageSize, rows) {
+    page = Math.max(1, Number(page) || 1);
+    pageSize = Math.max(1, Number(pageSize) || 20);
+    var key = nativePagesKey(albumItemId);
+    var cache = readRaw(key), now = Date.now();
+    if (!cache || cache.version !== 1 ||
+        Number(cache.pageSize) !== pageSize ||
+        now - Number(cache.time || 0) > ALBUM_GALLERY_TTL ||
+        !cache.pages || typeof cache.pages !== "object") {
+      cache = { version: 1, time: now, pageSize: pageSize, pages: {} };
+    }
+    cache.time = now;
+    cache.pages[String(page)] = copy((rows || []).filter(function (row) {
+      return !isEmbeddedExhobbyRow(row);
+    }));
+    saveRaw(key, cache);
+    return cache;
+  }
+  function nativeRowsSlice(cache, start, count) {
+    if (!cache || !cache.pages || count <= 0) return [];
+    var size = Math.max(1, Number(cache.pageSize) || 20);
+    var out = [], index = Math.max(0, Number(start) || 0);
+    while (out.length < count) {
+      var sourcePage = Math.floor(index / size) + 1;
+      var offset = index % size;
+      var rows = cache.pages[String(sourcePage)];
+      if (!Array.isArray(rows)) break;
+      if (offset >= rows.length) break;
+      while (offset < rows.length && out.length < count) {
+        out.push(copy(rows[offset]));
+        offset++; index++;
+      }
+      if (rows.length < size && offset >= rows.length) break;
+    }
+    return out;
+  }
   async function injectGalleryIntoNativePictures(doc, ctx) {
     if (!doc || !doc.data || !Array.isArray(doc.data.list)) return false;
     var page = Math.max(1, Number(ctx && ctx.p && ctx.p.page) || 1);
-    if (page !== 1) return false;
+    var pageSize = Math.max(1, Number(ctx && ctx.p && ctx.p.pageSize) || 20);
     var albumItemId = Number(ctx && ctx.v && ctx.v.route);
+    var nativeRows = doc.data.list.filter(function (row) {
+      return !isEmbeddedExhobbyRow(row);
+    });
+    var nativeCache = cacheNativePicturePage(
+      albumItemId, page, pageSize, nativeRows);
+
     var gallery = await loadAlbumGallery(albumItemId);
     if (!gallery || !gallery.complete || gallery.version !== 31 ||
         !gallery.scoped || !Array.isArray(gallery.rows) || !gallery.rows.length) {
       log("native album itemId=" + albumItemId + " has no scoped EXHOBBY gallery");
       return false;
     }
-    var nativeRows = doc.data.list.filter(function (row) {
-      return !isEmbeddedExhobbyRow(row);
+
+    var outputStart = (page - 1) * pageSize;
+    var outputEnd = outputStart + pageSize;
+    var exStart = Math.min(outputStart, gallery.rows.length);
+    var exEnd = Math.min(outputEnd, gallery.rows.length);
+    var exRows = gallery.rows.slice(exStart, exEnd).map(function (row, index) {
+      return pictureRowObject(row, exStart + index + 1);
     });
-    doc.data.list = embeddedGalleryPictures(gallery).concat(nativeRows);
-    log("scoped EXHOBBY pictures added inside native album itemId=" +
-      albumItemId + "; exhobby=" + gallery.rows.length +
-      " native=" + nativeRows.length);
+
+    var nativeStart = Math.max(0, outputStart - gallery.rows.length);
+    var nativeNeeded = Math.max(0, pageSize - exRows.length);
+    var visibleNative = nativeRowsSlice(nativeCache, nativeStart, nativeNeeded);
+    doc.data.list = exRows.concat(visibleNative);
+
+    if (doc.data && typeof doc.data.total === "number") {
+      doc.data.total = Math.max(Number(doc.data.total) || 0,
+        gallery.rows.length + nativeStart + visibleNative.length);
+    }
+
+    log("lazy scoped album itemId=" + albumItemId +
+      " page=" + page + " pageSize=" + pageSize +
+      " exhobbyShown=" + exRows.length +
+      " nativeShown=" + visibleNative.length +
+      " exhobbyTotal=" + gallery.rows.length +
+      " nativeCachedPages=" + Object.keys(nativeCache.pages || {}).length);
     return true;
   }
   function navigationProxy(album) {
@@ -527,7 +590,7 @@
     var previous = read("verify-notice"), now = Date.now();
     if (previous && now - Number(previous.time) < VERIFY_COOLDOWN) return;
     if (!save("verify-notice", { time: now })) {
-      log("v3.6.1 notice cooldown could not be saved");
+      log("v3.6.2 notice cooldown could not be saved");
     }
     var url = error.verificationURL;
     var title = "EXHOBBY 需要验证";
@@ -551,7 +614,7 @@
       } catch (_) {} finally {
         if (typeof clearTimeout === "function") clearTimeout(timer);
       }
-      log("v3.6.1 Bark delivery failed; falling back to Quantumult X notice");
+      log("v3.6.2 Bark delivery failed; falling back to Quantumult X notice");
     }
     if (typeof $notify === "function") {
       $notify(title, "打开 EXHOBBY 验证", message + "\n" + url);
@@ -858,9 +921,9 @@
               /^https:\/\/www\.exhobby\.net\/picture\?link=/.test(url)) {
             save("all:" + Number(pageItem[1]) + ":gallery-link", verifyURL(url));
           }
-          log("v3.6.1 browser session saved; reopen Hpoi");
-        } else log("v3.6.1 browser session cache write failed");
-      } else log("v3.6.1 gallery loaded, but Cookie header missing; tap More in Safari");
+          log("v3.6.2 browser session saved; reopen Hpoi");
+        } else log("v3.6.2 browser session cache write failed");
+      } else log("v3.6.2 gallery loaded, but Cookie header missing; tap More in Safari");
     }
     done();
     return true;
@@ -909,7 +972,7 @@
       var title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
       var heading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
       var item = html.match(/\bquery\s*\.\s*item\s*=\s*["']?(\d+)/i);
-      log("v3.6.1 " + stage + " title=" + label(title && title[1]) +
+      log("v3.6.2 " + stage + " title=" + label(title && title[1]) +
         " h1=" + label(heading && heading[1]) +
         " figures=" + (html.match(/<figure\b/gi) || []).length +
         " images=" + (html.match(/<img\b/gi) || []).length +
@@ -940,7 +1003,7 @@
         try { text = decodeURIComponent(encoded); }
         catch (_) { throw new Error(stage + " invalid UTF-8 bodyBytes"); }
       }
-      log("v3.6.1 " + stage + " HTTP=" + response.statusCode +
+      log("v3.6.2 " + stage + " HTTP=" + response.statusCode +
         " body=" + (text === null ? "missing" : text.length) +
         " type=" + (header(response, "content-type") || "unknown"));
       if (text === null || !text.trim()) {
@@ -993,7 +1056,7 @@
         var status = Number(response.statusCode);
         if ([301, 302, 303, 307, 308].indexOf(status) >= 0) {
           url = safeURL(header(response, "location"));
-          log("v3.6.1 " + stage + " redirect=" + url.split("?")[0]);
+          log("v3.6.2 " + stage + " redirect=" + url.split("?")[0]);
           if (status === 303 || ((status === 301 || status === 302) && method === "POST")) {
             method = "GET"; body = "";
           }
@@ -1040,7 +1103,7 @@
       if (!rows.length) {
         throw new Error("fresh first HTML has no gallery pictures; see title/redirect above");
       }
-      log("v3.6.1 " + scopeLabel + " first HTML count=" + rows.length);
+      log("v3.6.2 " + scopeLabel + " first HTML count=" + rows.length);
       return rows;
     }
     async function bootstrap(ticket) {
@@ -1068,7 +1131,7 @@
       }
       galleryURL = url;
       if (targetType === "hobby") save("gallery-link", url);
-      log("v3.6.1 " + scopeLabel + " fresh map.url ready; preview list not used");
+      log("v3.6.2 " + scopeLabel + " fresh map.url ready; preview list not used");
       firstRows = parseFirst(await request(url, "GET", "", "first HTML", ticket));
     }
     return {
@@ -1079,7 +1142,7 @@
           "page=" + page + "&item=" + pageItem + "&type=all", "page " + page, ticket);
         var list = parseJSON(text, "page " + page);
         if (!Array.isArray(list)) throw new Error("page " + page + " response is not an array");
-        log("v3.6.1 " + scopeLabel + " page=" + page + " count=" + list.length);
+        log("v3.6.2 " + scopeLabel + " page=" + page + " count=" + list.length);
         return list;
       }
     };
@@ -1088,7 +1151,7 @@
     return new Promise(function (resolve, reject) {
       var finished = false;
       var timer = setTimeout(function () {
-        finish(new Error("v3.6.1 " + (label || "gallery") +
+        finish(new Error("v3.6.2 " + (label || "gallery") +
           " page=" + page + " timeout; refresh to resume"));
       }, milliseconds);
       function finish(error, value) {
@@ -1250,7 +1313,7 @@
       var firstSignature = first.map(function (r) { return r.path; }).join("|");
       if (work.next > 1 && work.first !== firstSignature) {
         work = { version: 30, started: now, next: 1, rows: [], last: "", first: "" };
-        log("v3.6.1 first page changed; restarting pagination");
+        log("v3.6.2 first page changed; restarting pagination");
       }
       work.first = firstSignature;
       var paths = Object.create(null), ids = Object.create(null);
@@ -1312,7 +1375,7 @@
     if (!isResponse) {
       if (session == null) { log("request session unavailable"); return done(); }
       var p = params(), v = endpoint === "hobby/album" ? null : virtualItem(p);
-      log("runtime=v3.6.1 phase=request endpoint=" + endpoint);
+      log("runtime=v3.6.2 phase=request endpoint=" + endpoint);
       if (endpoint === "album/detail" || endpoint === "pic/list/relate-v2" ||
           endpoint === "item/get") {
         var routeBits = [];
@@ -1331,7 +1394,7 @@
       var output = {};
       if (v && (v.type === "normal-owner" || v.type === "standalone-owner")) {
         ctx.remapped = false;
-        log("v3.6.1 " + (v.type === "standalone-owner" ? "standalone" : "native") +
+        log("v3.6.2 " + (v.type === "standalone-owner" ? "standalone" : "native") +
           " album owner resolved itemId=" + v.route);
       } else if (v && v.type === "normal-nav") {
         if (Number(p.itemId) !== Number(v.proxy)) {
@@ -1339,7 +1402,7 @@
         }
         output = changeRequest({ itemId: String(v.route) });
         ctx.remapped = true;
-        log("v3.6.1 native album navigation itemId restored " +
+        log("v3.6.2 native album navigation itemId restored " +
           v.proxy + "->" + v.route);
       } else if (v && v.type === "normal") {
         var proxyChanges = {};
@@ -1351,7 +1414,7 @@
         }
         output = changeRequest(proxyChanges);
         ctx.remapped = true;
-        log("v3.6.1 normal album proxy remapped to native route");
+        log("v3.6.2 normal album proxy remapped to native route");
       } else if (v) {
         var seed = read("seed:" + endpoint);
         if (!seed || !seed.p) throw new Error("open a normal Hpoi album first");
@@ -1373,7 +1436,7 @@
               !changes[k]) {
             if (!safeId) throw new Error("native album template has no safe ID field");
             changes[k] = safeId;
-            log("v3.6.1 remap request field " + k + " via template ID");
+            log("v3.6.2 remap request field " + k + " via template ID");
           }
         });
         output = changeRequest(changes);
@@ -1537,7 +1600,7 @@
         rememberAlbumOwner(nativeAlbum);
       });
 
-      // v3.6.1: native Hpoi albums keep their original id/itemId unchanged.
+      // v3.6.2: native Hpoi albums keep their original id/itemId unchanged.
       // EXHOBBY receives its own stable local route that is checked against all
       // native id/itemId/albumId values in this hobby before insertion.
       var dedicatedRoute = dedicatedAlbumRoute(doc.data.list);
@@ -1560,7 +1623,7 @@
     done();
   }
   main().catch(function (e) {
-    log("v3.6.1 " + (e && e.message ? e.message : "operation failed"));
+    log("v3.6.2 " + (e && e.message ? e.message : "operation failed"));
     Promise.resolve().then(function () {
       if (e && e.verificationURL) return notifyVerification(e);
     }).catch(function () {}).then(function () {
