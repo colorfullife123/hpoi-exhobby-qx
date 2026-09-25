@@ -2,16 +2,24 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
-assert(script.startsWith('// Hpoi + EXHOBBY native album v3.5.8'));
-assert.equal(pkg.version,'3.5.8');
+assert(script.startsWith('// Hpoi + EXHOBBY native album v3.5.9'));
+assert.equal(pkg.version,'3.5.9');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
-function html(id){return '<title>Gallery</title><script>query.item="'+id+'";</script>'+rows[id].slice(0,20).map(r=>'<figure><img src="https://res.e39x.com/pic/s/'+r.path+'"></figure>').join('');}
+function htmlRows(id,list){return '<title>Gallery</title><script>query.item="'+id+'";</script>'+list.slice(0,20).map(r=>'<figure><img src="https://res.e39x.com/pic/s/'+r.path+'"></figure>').join('');}
+function html(id){return htmlRows(id,rows[id]);}
 const json=v=>({statusCode:200,headers:{'Content-Type':'application/json'},body:JSON.stringify(v)});
 const seedAlbum={id:12345678,itemId:214102,itemType:'album',categoryId:8,name:'Normal',picCount:2,cover:'normal.jpg',user:{id:1,nickname:'Real author'}};
 function albumFor(id){const d=id-A;return {...seedAlbum,id:seedAlbum.id+d*10,itemId:seedAlbum.itemId+d*10};}
 function secondAlbumFor(id){const d=id-A;return {...seedAlbum,id:12345778+d*10,itemId:214202+d*10,name:'Normal 2',cover:'normal-2.jpg'};}
+function scopedAlbumRows(itemId){
+ for(const id of [A,B,C]){
+  if(itemId===albumFor(id).itemId)return rows[id].slice(0,Math.min(12,rows[id].length));
+  if(itemId===secondAlbumFor(id).itemId)return rows[id].slice(12,Math.min(20,rows[id].length));
+ }
+ return [];
+}
 function harness(){
   const prefs=new Map(),logs=[],calls=[],notices=[];
  prefs.set(NS+'browser-session',JSON.stringify({cookie:'EXHOBBY_BROWSER_COOKIE',agent:'Safari fixture',time:Date.now()}));
@@ -27,20 +35,33 @@ function harness(){
   assert(!JSON.stringify(o).includes('HPOI_PRIVATE_TOKEN'));
   const u=new URL(o.url);
   if(u.pathname==='/get/pic'){
-   const id=u.searchParams.has('id')?Number(u.searchParams.get('id')):Number(Object.keys(items).find(k=>items[k]===Number(u.searchParams.get('itemId'))));
+   const itemType=u.searchParams.get('itemType');
+   const itemId=Number(u.searchParams.get('itemId'));
+   if(itemType==='album'){
+    const scoped=scopedAlbumRows(itemId);
+    if(!scoped.length)return json({map:{list:[]}});
+    return json({map:{list:scoped.slice(0,6),url:'https://www.exhobby.net/picture?link=A_'+itemId}});
+   }
+   const id=u.searchParams.has('id')?Number(u.searchParams.get('id')):Number(Object.keys(items).find(k=>items[k]===itemId));
    assert(items[id]);
    if(!rows[id].length)return json({map:{list:[]}});
    return json({map:{list:rows[id].slice(0,6),url:'https://www.exhobby.net/picture?link=G_'+id}});
   }
    if(u.pathname==='/picture'){
-    const id=Number(u.searchParams.get('link').slice(2));
+    const link=String(u.searchParams.get('link')||'');
+    if(link.startsWith('A_')){
+      const itemId=Number(link.slice(2)),scoped=scopedAlbumRows(itemId);
+      return{statusCode:200,body:htmlRows(itemId,scoped)};
+    }
+    const id=Number(link.slice(2));
     if(ageGate===-id)return{statusCode:403,body:'<div class="cf-turnstile">Browser verification</div>'};
     return{statusCode:200,body:ageGate===id?'<h1>年齡提醒！</h1>':html(id)};
    }
   const id=Number(u.pathname.split('/')[2]),p=new URLSearchParams(o.body),page=Number(p.get('page'));
   assert.equal(Number(p.get('item')),id);assert(page>=2);
   if(id===failItem&&page===failPage)return{statusCode:200,headers:{'Content-Length':'0'}};
-  return json(rows[id].slice((page-1)*20,page*20));
+  const source=rows[id]||scopedAlbumRows(id);
+  return json(source.slice((page-1)*20,page*20));
  }
  function run(req,res){
   return new Promise((resolve,reject)=>{
@@ -91,8 +112,8 @@ const unwrap=r=>JSON.parse(r.body).data;
  assert.equal(stagedDetail.album.itemId,homeA.itemId);
  assert.equal(stagedDetail.album.picCount,45);
 
- const pics=async(id,page)=>unwrap(await h.rt('pic/list/relate-v2','itemId='+(1000000000+id)+'&itemType=album&page='+page+'&pageSize=20',{success:true,data:{list:[]}})).list;
- const pa=await pics(A,1),pb=await pics(B,1);
+ const pics=async(route,page)=>unwrap(await h.rt('pic/list/relate-v2','itemId='+route+'&itemType=album&page='+page+'&pageSize=20',{success:true,data:{list:[]}})).list;
+ const pa=await pics(homeA.itemId,1),pb=await pics(homeB.itemId,1);
  assert.equal(pa.length,20);assert.equal(pb.length,20);
  assert(pa.every(row=>row.subType===7),
    'EXHOBBY rows preserve native outer-row fields such as subType');
@@ -102,16 +123,16 @@ const unwrap=r=>JSON.parse(r.body).data;
  const preservedSeed=JSON.parse(h.prefs.get(NS+'seed:pic/list/relate-v2'));
  assert.equal(preservedSeed.row.subType,7,
    'later rows missing subType must preserve the previously learned subtype');
- const paAfter=await pics(A,1);
+ const paAfter=await pics(homeA.itemId,1);
  assert(paAfter.every(row=>row.subType===7),
    'EXHOBBY rows keep rendering metadata after template refreshes');
  assert.notEqual(pa[0].id,pb[0].id,'different gallery first photos cannot reuse native IDs');
- assert.equal((await pics(A,3)).length,5);assert.equal((await pics(B,2)).length,7);
- assert.equal((await pics(B,3)).length,0);
- let detail=unwrap(await h.rt('album/detail','id='+(1000000000+A),{success:true,data:{album:seedAlbum}}));
+ assert.equal((await pics(homeA.itemId,3)).length,5);assert.equal((await pics(homeB.itemId,2)).length,7);
+ assert.equal((await pics(homeB.itemId,3)).length,0);
+ let detail=unwrap(await h.rt('album/detail','id='+homeA.id+'&itemId='+homeA.itemId+'&itemType=album',{success:true,data:{album:seedAlbum}}));
  assert.equal(detail.album.picCount,45);
  assert.equal(detail.album.cover,'/__exhobby__/2026/09/'+A+'-0.jpg');
- const itemIdDetailJob=await h.begin('album/detail','itemId='+(1000000000+A)+'&itemType=album');
+ const itemIdDetailJob=await h.begin('album/detail','id='+homeA.id+'&itemId='+homeA.itemId+'&itemType=album');
  const remappedDetailParams=new URLSearchParams(itemIdDetailJob.mapped.body);
  assert.equal(remappedDetailParams.get('itemId'),'214102');
  assert.equal(remappedDetailParams.get('id'),'214102');
@@ -125,16 +146,18 @@ const unwrap=r=>JSON.parse(r.body).data;
  const nativeFirst=unwrap(await h.rt('pic/list/relate-v2',
    'itemId='+albumFor(A).itemId+'&itemType=album&page=1&pageSize=20',
    {success:true,data:{list:[{id:901,rank:1,subType:7,pictureInfo:{id:901,itemId:902,itemType:'pic',path:'normal.jpg'}}]}})).list;
- assert.equal(nativeFirst.filter(r=>String(r.pictureInfo&&r.pictureInfo.path||'').startsWith('/__exhobby__/')).length,45,
-   'first native album page receives the full EXHOBBY gallery');
+ assert.equal(nativeFirst.filter(r=>String(r.pictureInfo&&r.pictureInfo.path||'').startsWith('/__exhobby__/')).length,12,
+   'first native album receives only its own EXHOBBY scoped gallery');
+ assert(nativeFirst.slice(0,12).every(r=>r.pictureInfo.path.includes('/'+A+'-')),
+   'first native album scoped rows belong to the current album subset');
  assert.equal(nativeFirst.at(-1).pictureInfo.path,'normal.jpg',
    'native picture remains after injected EXHOBBY rows');
 
  const otherFirst=unwrap(await h.rt('pic/list/relate-v2',
    'itemId='+secondAlbumFor(A).itemId+'&itemType=album&page=1&pageSize=20',
    {success:true,data:{list:[{id:903,rank:1,subType:7,pictureInfo:{id:903,itemId:904,itemType:'pic',path:'normal2.jpg'}}]}})).list;
- assert.equal(otherFirst.filter(r=>String(r.pictureInfo&&r.pictureInfo.path||'').startsWith('/__exhobby__/')).length,45,
-   'every other native album first page receives the same EXHOBBY gallery');
+ assert.equal(otherFirst.filter(r=>String(r.pictureInfo&&r.pictureInfo.path||'').startsWith('/__exhobby__/')).length,8,
+   'second native album receives only its own EXHOBBY scoped gallery');
  assert.equal(otherFirst.at(-1).pictureInfo.path,'normal2.jpg');
 
  assert.equal(JSON.stringify(await h.rt('pic/list/relate-v2',
