@@ -353,7 +353,11 @@
     if (!seed || !seed.album) throw new Error("open a normal Hpoi album first");
     var a = copy(nativeAlbum || seed.album);
     if (nativeAlbum && route) {
-      rewriteAlbumRoute(a, route, route, routeFields || []);
+      var nativeFields = Array.isArray(routeFields) ? routeFields : [];
+      rewriteAlbumRoute(a, route, route, nativeFields);
+      // Keep the actual Hpoi navigation route, but give the dedicated card
+      // its own object identity when "id" itself is not the navigation field.
+      if (nativeFields.indexOf("id") < 0) a.id = ALBUM;
     } else {
       rewriteAlbumRoute(a, null, route || ALBUM, ["id", "itemId", "albumId"]);
     }
