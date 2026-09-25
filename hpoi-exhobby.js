@@ -1,4 +1,4 @@
-// Hpoi + EXHOBBY native album v3.4.3 — Quantumult X
+// Hpoi + EXHOBBY native album v3.4.4 — Quantumult X
 // Automatically handles hobby entries with an EXHOBBY gallery.
 // Reuses the browser session and native templates saved by v2.3.
 // No Hpoi token is stored or sent to EXHOBBY.
@@ -48,20 +48,48 @@
     try { return JSON.parse($prefs.valueForKey(NS + key) || "null"); }
     catch (_) { return null; }
   }
-  function albumRouteId(album) {
-    var fields = ["itemId", "id", "albumId"];
+  function routeFieldHints() {
+    var detail = read("seed:album/detail"), picture = read("seed:pic/list/relate-v2");
+    var seedAlbum = detail && detail.album, values = Object.create(null), hints = [];
+    [detail && detail.p, picture && picture.p].forEach(function (p) {
+      ID_FIELDS.forEach(function (k) {
+        var n = Number(p && p[k]);
+        if (Number.isInteger(n) && n > 0 && n < ALBUM_BASE) values[n] = true;
+      });
+    });
+    ["itemId", "id", "albumId"].forEach(function (k) {
+      var n = Number(seedAlbum && seedAlbum[k]);
+      if (Number.isInteger(n) && values[n]) hints.push(k);
+    });
+    return hints;
+  }
+  function albumRouteProfile(album) {
+    var preferred = routeFieldHints(), fallback = ["itemId", "id", "albumId"];
+    var fields = preferred.length ? preferred.concat(fallback.filter(function (k) {
+      return preferred.indexOf(k) < 0;
+    })) : fallback;
     for (var i = 0; i < fields.length; i++) {
       var n = Number(album && album[fields[i]]);
-      if (Number.isInteger(n) && n > 0 && n < ALBUM_BASE && n !== ITEM) return n;
+      if (!Number.isInteger(n) || n <= 0 || n >= ALBUM_BASE || n === ITEM) continue;
+      var routeFields = ["itemId", "id", "albumId"].filter(function (k) {
+        return Number(album && album[k]) === n &&
+          (!preferred.length || preferred.indexOf(k) >= 0 || k === fields[i]);
+      });
+      if (!routeFields.length) routeFields = [fields[i]];
+      return { route: n, fields: routeFields };
     }
-    return 0;
+    return null;
   }
-  function rememberDedicatedRoute(route) {
-    if (!Number.isInteger(route) || route <= 0 || route >= ALBUM_BASE) return false;
-    return saveRaw("dedicated-route:" + route,
-      { item: ITEM, route: route, time: Date.now() });
+  function rememberDedicatedRoute(profile, album) {
+    if (!profile || !Number.isInteger(profile.route) ||
+        profile.route <= 0 || profile.route >= ALBUM_BASE) return false;
+    return saveRaw("dedicated-route:" + profile.route, {
+      item: ITEM, route: profile.route, fields: profile.fields || [],
+      album: copy(album), time: Date.now()
+    });
   }
-  function normalAlbumProxy(route) {
+  function normalAlbumProxy(profile, album) {
+    var route = Number(profile && profile.route);
     var source = ITEM + ":" + route, hash = 2166136261;
     for (var i = 0; i < source.length; i++) {
       hash = Math.imul(hash ^ source.charCodeAt(i), 16777619) >>> 0;
@@ -69,10 +97,18 @@
     var offset = hash % PROXY_SPAN;
     for (var probe = 0; probe < 100; probe++) {
       var id = PROXY_BASE + offset, record = readRaw("album-proxy:" + id);
-      if (record && Number(record.item) === ITEM && Number(record.route) === route) return id;
+      if (record && Number(record.item) === ITEM && Number(record.route) === route) {
+        saveRaw("album-proxy:" + id, {
+          item: ITEM, route: route, fields: profile.fields || [],
+          album: copy(album), time: Date.now()
+        });
+        return id;
+      }
       if (!record) {
-        if (!saveRaw("album-proxy:" + id,
-          { item: ITEM, route: route, time: Date.now() })) {
+        if (!saveRaw("album-proxy:" + id, {
+          item: ITEM, route: route, fields: profile.fields || [],
+          album: copy(album), time: Date.now()
+        })) {
           throw new Error("normal album proxy write failed");
         }
         return id;
@@ -81,17 +117,22 @@
     }
     throw new Error("normal album proxy collision; refresh to retry");
   }
-  function proxyAlbumObject(album, proxy) {
-    var a = copy(album);
-    a.id = proxy; a.itemId = proxy;
-    if ("albumId" in a) a.albumId = proxy;
-    return a;
-  }
-  function rewriteAlbumRoute(album, route) {
+  function rewriteAlbumRoute(album, fromRoute, toRoute, fields) {
     if (!album) return album;
-    album.id = route; album.itemId = route;
-    if ("albumId" in album) album.albumId = route;
+    var selected = Array.isArray(fields) && fields.length ? fields :
+      ["itemId", "id", "albumId"].filter(function (k) {
+        return Number(album[k]) === Number(fromRoute);
+      });
+    if (!selected.length) selected = ["itemId", "id", "albumId"];
+    selected.forEach(function (k) {
+      if (k in album || k === "itemId" || k === "id") album[k] = toRoute;
+    });
     return album;
+  }
+  function proxyAlbumObject(album, proxy, profile) {
+    var a = copy(album);
+    rewriteAlbumRoute(a, profile.route, proxy, profile.fields);
+    return a;
   }
   function verifyURL(value) {
     var url = String(value || "");
@@ -117,7 +158,7 @@
     var previous = read("verify-notice"), now = Date.now();
     if (previous && now - Number(previous.time) < VERIFY_COOLDOWN) return;
     if (!save("verify-notice", { time: now })) {
-      log("v3.4.3 notice cooldown could not be saved");
+      log("v3.4.4 notice cooldown could not be saved");
     }
     var url = error.verificationURL;
     var title = "EXHOBBY 需要验证";
@@ -141,7 +182,7 @@
       } catch (_) {} finally {
         if (typeof clearTimeout === "function") clearTimeout(timer);
       }
-      log("v3.4.3 Bark delivery failed; falling back to Quantumult X notice");
+      log("v3.4.4 Bark delivery failed; falling back to Quantumult X notice");
     }
     if (typeof $notify === "function") {
       $notify(title, "打开 EXHOBBY 验证", message + "\n" + url);
@@ -247,14 +288,16 @@
       var dedicated = readRaw("dedicated-route:" + n);
       if (dedicated && validItem(Number(dedicated.item)) &&
           Number(dedicated.route) === n) {
-        return { type: "album", item: Number(dedicated.item), route: n };
+        return { type: "album", item: Number(dedicated.item), route: n,
+          fields: dedicated.fields || [], album: dedicated.album || null };
       }
       var proxy = readRaw("album-proxy:" + n);
       if (proxy && validItem(Number(proxy.item)) &&
           Number.isInteger(Number(proxy.route)) && Number(proxy.route) > 0 &&
           Number(proxy.route) < ALBUM_BASE) {
         return { type: "normal", item: Number(proxy.item),
-          route: Number(proxy.route), proxy: n };
+          route: Number(proxy.route), proxy: n, fields: proxy.fields || [],
+          album: proxy.album || null };
       }
       var item = n - ALBUM_BASE;
       if (validItem(item) && read("all:" + item + ":known")) {
@@ -305,11 +348,15 @@
     ["commentCount", "hits", "hitsDay", "hits7Day", "collect", "praiseCount",
       "topTime", "topLevel"].forEach(function (k) { value[k] = 0; });
   }
-  function albumObject(gallery, nativeAlbum, route) {
+  function albumObject(gallery, nativeAlbum, route, routeFields) {
     var seed = read("seed:album/detail");
     if (!seed || !seed.album) throw new Error("open a normal Hpoi album first");
     var a = copy(nativeAlbum || seed.album);
-    rewriteAlbumRoute(a, route || ALBUM);
+    if (nativeAlbum && route) {
+      rewriteAlbumRoute(a, route, route, routeFields || []);
+    } else {
+      rewriteAlbumRoute(a, null, route || ALBUM, ["id", "itemId", "albumId"]);
+    }
     a.itemType = "album";
     a.name = a.nameCN = "EXHOBBY 相册";
     a.detail = "<p>EXHOBBY 相册，共 " + gallery.rows.length + " 张图片。</p>";
@@ -386,9 +433,9 @@
               /^https:\/\/www\.exhobby\.net\/picture\?link=/.test(url)) {
             save("all:" + Number(pageItem[1]) + ":gallery-link", verifyURL(url));
           }
-          log("v3.4.3 browser session saved; reopen Hpoi");
-        } else log("v3.4.3 browser session cache write failed");
-      } else log("v3.4.3 gallery loaded, but Cookie header missing; tap More in Safari");
+          log("v3.4.4 browser session saved; reopen Hpoi");
+        } else log("v3.4.4 browser session cache write failed");
+      } else log("v3.4.4 gallery loaded, but Cookie header missing; tap More in Safari");
     }
     done();
     return true;
@@ -432,7 +479,7 @@
       var title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
       var heading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
       var item = html.match(/\bquery\s*\.\s*item\s*=\s*["']?(\d+)/i);
-      log("v3.4.3 " + stage + " title=" + label(title && title[1]) +
+      log("v3.4.4 " + stage + " title=" + label(title && title[1]) +
         " h1=" + label(heading && heading[1]) +
         " figures=" + (html.match(/<figure\b/gi) || []).length +
         " images=" + (html.match(/<img\b/gi) || []).length +
@@ -463,7 +510,7 @@
         try { text = decodeURIComponent(encoded); }
         catch (_) { throw new Error(stage + " invalid UTF-8 bodyBytes"); }
       }
-      log("v3.4.3 " + stage + " HTTP=" + response.statusCode +
+      log("v3.4.4 " + stage + " HTTP=" + response.statusCode +
         " body=" + (text === null ? "missing" : text.length) +
         " type=" + (header(response, "content-type") || "unknown"));
       if (text === null || !text.trim()) {
@@ -516,7 +563,7 @@
         var status = Number(response.statusCode);
         if ([301, 302, 303, 307, 308].indexOf(status) >= 0) {
           url = safeURL(header(response, "location"));
-          log("v3.4.3 " + stage + " redirect=" + url.split("?")[0]);
+          log("v3.4.4 " + stage + " redirect=" + url.split("?")[0]);
           if (status === 303 || ((status === 301 || status === 302) && method === "POST")) {
             method = "GET"; body = "";
           }
@@ -558,7 +605,7 @@
       if (!rows.length) {
         throw new Error("fresh first HTML has no gallery pictures; see title/redirect above");
       }
-      log("v3.4.3 first HTML count=" + rows.length);
+      log("v3.4.4 first HTML count=" + rows.length);
       return rows;
     }
     async function bootstrap(ticket) {
@@ -578,7 +625,7 @@
       }
       galleryURL = url;
       save("gallery-link", url);
-      log("v3.4.3 fresh map.url ready; preview list not used");
+      log("v3.4.4 fresh map.url ready; preview list not used");
       firstRows = parseFirst(await request(url, "GET", "", "first HTML", ticket));
     }
     return {
@@ -589,7 +636,7 @@
           "page=" + page + "&item=" + ITEM + "&type=all", "page " + page, ticket);
         var list = parseJSON(text, "page " + page);
         if (!Array.isArray(list)) throw new Error("page " + page + " response is not an array");
-        log("v3.4.3 page=" + page + " count=" + list.length);
+        log("v3.4.4 page=" + page + " count=" + list.length);
         return list;
       }
     };
@@ -599,7 +646,7 @@
     return new Promise(function (resolve, reject) {
       var finished = false;
       var timer = setTimeout(function () {
-        finish(new Error("v3.4.3 page=" + page + " timeout; refresh to resume"));
+        finish(new Error("v3.4.4 page=" + page + " timeout; refresh to resume"));
       }, milliseconds);
       function finish(error, value) {
         if (finished) return;
@@ -633,7 +680,7 @@
       var firstSignature = first.map(function (r) { return r.path; }).join("|");
       if (work.next > 1 && work.first !== firstSignature) {
         work = { version: 30, started: now, next: 1, rows: [], last: "", first: "" };
-        log("v3.4.3 first page changed; restarting pagination");
+        log("v3.4.4 first page changed; restarting pagination");
       }
       work.first = firstSignature;
       var paths = Object.create(null), ids = Object.create(null);
@@ -708,7 +755,7 @@
         }
         output = changeRequest(proxyChanges);
         ctx.remapped = true;
-        log("v3.4.3 normal album proxy remapped to native route");
+        log("v3.4.4 normal album proxy remapped to native route");
       } else if (v) {
         var seed = read("seed:" + endpoint);
         if (!seed || !seed.p) throw new Error("open a normal Hpoi album first");
@@ -730,7 +777,7 @@
               !changes[k]) {
             if (!safeId) throw new Error("native album template has no safe ID field");
             changes[k] = safeId;
-            log("v3.4.3 remap request field " + k + " via template ID");
+            log("v3.4.4 remap request field " + k + " via template ID");
           }
         });
         output = changeRequest(changes);
@@ -752,10 +799,10 @@
         if (!ctx.remapped || doc.success !== true || !doc.data) return done();
         var restored = false;
         if (endpoint === "album/detail" && doc.data.album) {
-          rewriteAlbumRoute(doc.data.album, ctx.v.proxy); restored = true;
+          rewriteAlbumRoute(doc.data.album, ctx.v.route, ctx.v.proxy, ctx.v.fields); restored = true;
         }
         if (endpoint === "item/get" && doc.data.itemData) {
-          rewriteAlbumRoute(doc.data.itemData, ctx.v.proxy); restored = true;
+          rewriteAlbumRoute(doc.data.itemData, ctx.v.route, ctx.v.proxy, ctx.v.fields); restored = true;
         }
         log("normal Hpoi album kept separate from EXHOBBY");
         return restored ? done({ body: JSON.stringify(doc) }) : done();
@@ -768,11 +815,11 @@
       var g = read("gallery");
       if (!g || !g.complete || g.version !== 30) return errorReply();
       if (endpoint === "album/detail") {
-        return reply({ album: albumObject(g, null, ctx.v.route), videoList: [], event: null });
+        return reply({ album: albumObject(g, ctx.v.album, ctx.v.route, ctx.v.fields), videoList: [], event: null });
       }
       if (endpoint === "item/get") {
         if (ctx.v.type === "album") {
-          return reply({ itemData: albumObject(g, null, ctx.v.route) });
+          return reply({ itemData: albumObject(g, ctx.v.album, ctx.v.route, ctx.v.fields) });
         }
         return errorReply();
       }
@@ -831,18 +878,21 @@
       doc.data.list = doc.data.list.filter(function (a) {
         return Number(a && a.id) !== ALBUM && Number(a && a.itemId) !== ALBUM;
       });
-      var routeAlbum = null, routeIndex = -1, route = 0;
+      var routeAlbum = null, routeIndex = -1, routeProfile = null;
       for (var i = 0; i < doc.data.list.length; i++) {
-        route = albumRouteId(doc.data.list[i]);
-        if (route) { routeAlbum = doc.data.list[i]; routeIndex = i; break; }
+        routeProfile = albumRouteProfile(doc.data.list[i]);
+        if (routeProfile) { routeAlbum = doc.data.list[i]; routeIndex = i; break; }
       }
-      if (routeAlbum) {
-        if (!rememberDedicatedRoute(route)) throw new Error("dedicated album route write failed");
-        var proxyId = normalAlbumProxy(route);
-        doc.data.list[routeIndex] = proxyAlbumObject(routeAlbum, proxyId);
-        doc.data.list.unshift(albumObject(gallery, routeAlbum, route));
-        log("dedicated EXHOBBY entry added via reserved native route; total=" +
-          gallery.rows.length);
+      if (routeAlbum && routeProfile) {
+        if (!rememberDedicatedRoute(routeProfile, routeAlbum)) {
+          throw new Error("dedicated album route write failed");
+        }
+        var proxyId = normalAlbumProxy(routeProfile, routeAlbum);
+        doc.data.list[routeIndex] = proxyAlbumObject(routeAlbum, proxyId, routeProfile);
+        doc.data.list.unshift(albumObject(gallery, routeAlbum,
+          routeProfile.route, routeProfile.fields));
+        log("dedicated EXHOBBY entry added via reserved native route; fields=" +
+          routeProfile.fields.join(",") + " total=" + gallery.rows.length);
       } else {
         doc.data.list.unshift(albumObject(gallery, null, ALBUM));
         log("dedicated EXHOBBY entry added via synthetic route; total=" +
@@ -853,7 +903,7 @@
     done();
   }
   main().catch(function (e) {
-    log("v3.4.3 " + (e && e.message ? e.message : "operation failed"));
+    log("v3.4.4 " + (e && e.message ? e.message : "operation failed"));
     Promise.resolve().then(function () {
       if (e && e.verificationURL) return notifyVerification(e);
     }).catch(function () {}).then(function () {
