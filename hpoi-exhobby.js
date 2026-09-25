@@ -1,4 +1,4 @@
-// Hpoi + EXHOBBY native album v3.4.0 — Quantumult X
+// Hpoi + EXHOBBY native album v3.4.1 — Quantumult X
 // Automatically handles hobby entries with an EXHOBBY gallery.
 // Reuses the browser session and native templates saved by v2.3.
 // No Hpoi token is stored or sent to EXHOBBY.
@@ -91,7 +91,7 @@
     var previous = read("verify-notice"), now = Date.now();
     if (previous && now - Number(previous.time) < VERIFY_COOLDOWN) return;
     if (!save("verify-notice", { time: now })) {
-      log("v3.4.0 notice cooldown could not be saved");
+      log("v3.4.1 notice cooldown could not be saved");
     }
     var url = error.verificationURL;
     var title = "EXHOBBY 需要验证";
@@ -115,7 +115,7 @@
       } catch (_) {} finally {
         if (typeof clearTimeout === "function") clearTimeout(timer);
       }
-      log("v3.4.0 Bark delivery failed; falling back to Quantumult X notice");
+      log("v3.4.1 Bark delivery failed; falling back to Quantumult X notice");
     }
     if (typeof $notify === "function") {
       $notify(title, "打开 EXHOBBY 验证", message + "\n" + url);
@@ -313,6 +313,12 @@
     resetCounts(p);
     return { id: ALBUM, rank: 0, pictureInfo: p };
   }
+  function embeddedGalleryPictures(gallery) {
+    return gallery.rows.map(function (row, index) {
+      var picture = pictureObject(row);
+      return { id: picture.id, rank: index + 1, pictureInfo: picture };
+    });
+  }
   function reply(data) {
     done({ body: JSON.stringify({
       success: true, msg: "操作成功", code: 200, data: data
@@ -362,9 +368,9 @@
               /^https:\/\/www\.exhobby\.net\/picture\?link=/.test(url)) {
             save("all:" + Number(pageItem[1]) + ":gallery-link", verifyURL(url));
           }
-          log("v3.4.0 browser session saved; reopen Hpoi");
-        } else log("v3.4.0 browser session cache write failed");
-      } else log("v3.4.0 gallery loaded, but Cookie header missing; tap More in Safari");
+          log("v3.4.1 browser session saved; reopen Hpoi");
+        } else log("v3.4.1 browser session cache write failed");
+      } else log("v3.4.1 gallery loaded, but Cookie header missing; tap More in Safari");
     }
     done();
     return true;
@@ -408,7 +414,7 @@
       var title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
       var heading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
       var item = html.match(/\bquery\s*\.\s*item\s*=\s*["']?(\d+)/i);
-      log("v3.4.0 " + stage + " title=" + label(title && title[1]) +
+      log("v3.4.1 " + stage + " title=" + label(title && title[1]) +
         " h1=" + label(heading && heading[1]) +
         " figures=" + (html.match(/<figure\b/gi) || []).length +
         " images=" + (html.match(/<img\b/gi) || []).length +
@@ -439,7 +445,7 @@
         try { text = decodeURIComponent(encoded); }
         catch (_) { throw new Error(stage + " invalid UTF-8 bodyBytes"); }
       }
-      log("v3.4.0 " + stage + " HTTP=" + response.statusCode +
+      log("v3.4.1 " + stage + " HTTP=" + response.statusCode +
         " body=" + (text === null ? "missing" : text.length) +
         " type=" + (header(response, "content-type") || "unknown"));
       if (text === null || !text.trim()) {
@@ -492,7 +498,7 @@
         var status = Number(response.statusCode);
         if ([301, 302, 303, 307, 308].indexOf(status) >= 0) {
           url = safeURL(header(response, "location"));
-          log("v3.4.0 " + stage + " redirect=" + url.split("?")[0]);
+          log("v3.4.1 " + stage + " redirect=" + url.split("?")[0]);
           if (status === 303 || ((status === 301 || status === 302) && method === "POST")) {
             method = "GET"; body = "";
           }
@@ -534,7 +540,7 @@
       if (!rows.length) {
         throw new Error("fresh first HTML has no gallery pictures; see title/redirect above");
       }
-      log("v3.4.0 first HTML count=" + rows.length);
+      log("v3.4.1 first HTML count=" + rows.length);
       return rows;
     }
     async function bootstrap(ticket) {
@@ -554,7 +560,7 @@
       }
       galleryURL = url;
       save("gallery-link", url);
-      log("v3.4.0 fresh map.url ready; preview list not used");
+      log("v3.4.1 fresh map.url ready; preview list not used");
       firstRows = parseFirst(await request(url, "GET", "", "first HTML", ticket));
     }
     return {
@@ -565,7 +571,7 @@
           "page=" + page + "&item=" + ITEM + "&type=all", "page " + page, ticket);
         var list = parseJSON(text, "page " + page);
         if (!Array.isArray(list)) throw new Error("page " + page + " response is not an array");
-        log("v3.4.0 page=" + page + " count=" + list.length);
+        log("v3.4.1 page=" + page + " count=" + list.length);
         return list;
       }
     };
@@ -575,7 +581,7 @@
     return new Promise(function (resolve, reject) {
       var finished = false;
       var timer = setTimeout(function () {
-        finish(new Error("v3.4.0 page=" + page + " timeout; refresh to resume"));
+        finish(new Error("v3.4.1 page=" + page + " timeout; refresh to resume"));
       }, milliseconds);
       function finish(error, value) {
         if (finished) return;
@@ -609,7 +615,7 @@
       var firstSignature = first.map(function (r) { return r.path; }).join("|");
       if (work.next > 1 && work.first !== firstSignature) {
         work = { version: 30, started: now, next: 1, rows: [], last: "", first: "" };
-        log("v3.4.0 first page changed; restarting pagination");
+        log("v3.4.1 first page changed; restarting pagination");
       }
       work.first = firstSignature;
       var paths = Object.create(null), ids = Object.create(null);
@@ -698,7 +704,7 @@
           if (p[k] && (nativeId === ALBUM || nativeId > PIC_BASE) && !changes[k]) {
             if (!safeId) throw new Error("native album template has no safe ID field");
             changes[k] = safeId;
-            log("v3.4.0 remap request field " + k + " via template ID");
+            log("v3.4.1 remap request field " + k + " via template ID");
           }
         });
         output = changeRequest(changes);
@@ -780,10 +786,13 @@
           Array.isArray(parentGallery.rows) && parentGallery.rows.length) {
         doc.data.list = doc.data.list.filter(function (row) {
           var info = row && row.pictureInfo;
-          return Number(row && row.id) !== ALBUM && Number(info && info.itemId) !== ALBUM;
+          var virtual = info && virtualItem({ id: info.itemId || row.id });
+          return Number(row && row.id) !== ALBUM && Number(info && info.itemId) !== ALBUM &&
+            !(virtual && virtual.type === "pic" && virtual.item === ITEM);
         });
-        doc.data.list.unshift(albumEntryPicture(parentGallery));
-        log("EXHOBBY entry added inside album; total=" + parentGallery.rows.length);
+        doc.data.list = [albumEntryPicture(parentGallery)]
+          .concat(embeddedGalleryPictures(parentGallery), doc.data.list);
+        log("EXHOBBY viewer sequence added inside album; total=" + parentGallery.rows.length);
         return done({ body: JSON.stringify(doc) });
       }
     }
@@ -805,7 +814,7 @@
     done();
   }
   main().catch(function (e) {
-    log("v3.4.0 " + (e && e.message ? e.message : "operation failed"));
+    log("v3.4.1 " + (e && e.message ? e.message : "operation failed"));
     Promise.resolve().then(function () {
       if (e && e.verificationURL) return notifyVerification(e);
     }).catch(function () {}).then(function () {
