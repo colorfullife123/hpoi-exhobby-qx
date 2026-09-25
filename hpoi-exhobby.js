@@ -1,4 +1,4 @@
-// Hpoi + EXHOBBY native album v3.5.6 — Quantumult X
+// Hpoi + EXHOBBY native album v3.5.7 — Quantumult X
 // Automatically handles hobby entries with an EXHOBBY gallery.
 // Reuses the browser session and native templates saved by v2.3.
 // No Hpoi token is stored or sent to EXHOBBY.
@@ -134,6 +134,43 @@
     rewriteAlbumRoute(a, profile.route, proxy, profile.fields);
     return a;
   }
+  function rememberAlbumOwner(album) {
+    var itemId = Number(album && album.itemId);
+    var nativeId = Number(album && album.id);
+    if (!Number.isInteger(itemId) || itemId <= 0 || itemId >= ALBUM_BASE) return false;
+    return saveRaw("album-owner:" + itemId, {
+      item: ITEM,
+      itemId: itemId,
+      nativeId: Number.isInteger(nativeId) ? nativeId : 0,
+      time: Date.now()
+    });
+  }
+  function embeddedGalleryPictures(gallery) {
+    return gallery.rows.map(function (row, index) {
+      return pictureRowObject(row, index + 1);
+    });
+  }
+  function isEmbeddedExhobbyRow(row) {
+    var info = row && row.pictureInfo;
+    return Number(row && row.id) > PIC_BASE ||
+      Number(info && info.id) > PIC_BASE ||
+      /^\/__exhobby__\//.test(String(info && info.path || ""));
+  }
+  function injectGalleryIntoNativePictures(doc, ctx) {
+    if (!doc || !doc.data || !Array.isArray(doc.data.list)) return false;
+    var page = Math.max(1, Number(ctx && ctx.p && ctx.p.page) || 1);
+    if (page !== 1) return false;
+    var gallery = read("gallery");
+    if (!gallery || !gallery.complete || gallery.version !== 30 ||
+        !Array.isArray(gallery.rows) || !gallery.rows.length) return false;
+    var nativeRows = doc.data.list.filter(function (row) {
+      return !isEmbeddedExhobbyRow(row);
+    });
+    doc.data.list = embeddedGalleryPictures(gallery).concat(nativeRows);
+    log("EXHOBBY pictures added inside native album; exhobby=" +
+      gallery.rows.length + " native=" + nativeRows.length);
+    return true;
+  }
   function navigationProxy(album) {
     var nativeId = Number(album && album.id);
     var nativeItemId = Number(album && album.itemId);
@@ -186,7 +223,7 @@
     var previous = read("verify-notice"), now = Date.now();
     if (previous && now - Number(previous.time) < VERIFY_COOLDOWN) return;
     if (!save("verify-notice", { time: now })) {
-      log("v3.5.6 notice cooldown could not be saved");
+      log("v3.5.7 notice cooldown could not be saved");
     }
     var url = error.verificationURL;
     var title = "EXHOBBY 需要验证";
@@ -210,7 +247,7 @@
       } catch (_) {} finally {
         if (typeof clearTimeout === "function") clearTimeout(timer);
       }
-      log("v3.5.6 Bark delivery failed; falling back to Quantumult X notice");
+      log("v3.5.7 Bark delivery failed; falling back to Quantumult X notice");
     }
     if (typeof $notify === "function") {
       $notify(title, "打开 EXHOBBY 验证", message + "\n" + url);
@@ -321,6 +358,11 @@
         return { type: "normal-nav", item: Number(nav.item), proxy: n,
           route: Number(nav.nativeItemId), nativeId: Number(nav.nativeId),
           album: nav.album || null };
+      }
+      var owner = readRaw("album-owner:" + n);
+      if (owner && validItem(Number(owner.item)) && Number(owner.itemId) === n) {
+        return { type: "normal-owner", item: Number(owner.item),
+          route: n, nativeId: Number(owner.nativeId) || 0 };
       }
       var item = n - ALBUM_BASE;
       if (validItem(item) && read("all:" + item + ":known")) {
@@ -497,9 +539,9 @@
               /^https:\/\/www\.exhobby\.net\/picture\?link=/.test(url)) {
             save("all:" + Number(pageItem[1]) + ":gallery-link", verifyURL(url));
           }
-          log("v3.5.6 browser session saved; reopen Hpoi");
-        } else log("v3.5.6 browser session cache write failed");
-      } else log("v3.5.6 gallery loaded, but Cookie header missing; tap More in Safari");
+          log("v3.5.7 browser session saved; reopen Hpoi");
+        } else log("v3.5.7 browser session cache write failed");
+      } else log("v3.5.7 gallery loaded, but Cookie header missing; tap More in Safari");
     }
     done();
     return true;
@@ -543,7 +585,7 @@
       var title = html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i);
       var heading = html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i);
       var item = html.match(/\bquery\s*\.\s*item\s*=\s*["']?(\d+)/i);
-      log("v3.5.6 " + stage + " title=" + label(title && title[1]) +
+      log("v3.5.7 " + stage + " title=" + label(title && title[1]) +
         " h1=" + label(heading && heading[1]) +
         " figures=" + (html.match(/<figure\b/gi) || []).length +
         " images=" + (html.match(/<img\b/gi) || []).length +
@@ -574,7 +616,7 @@
         try { text = decodeURIComponent(encoded); }
         catch (_) { throw new Error(stage + " invalid UTF-8 bodyBytes"); }
       }
-      log("v3.5.6 " + stage + " HTTP=" + response.statusCode +
+      log("v3.5.7 " + stage + " HTTP=" + response.statusCode +
         " body=" + (text === null ? "missing" : text.length) +
         " type=" + (header(response, "content-type") || "unknown"));
       if (text === null || !text.trim()) {
@@ -627,7 +669,7 @@
         var status = Number(response.statusCode);
         if ([301, 302, 303, 307, 308].indexOf(status) >= 0) {
           url = safeURL(header(response, "location"));
-          log("v3.5.6 " + stage + " redirect=" + url.split("?")[0]);
+          log("v3.5.7 " + stage + " redirect=" + url.split("?")[0]);
           if (status === 303 || ((status === 301 || status === 302) && method === "POST")) {
             method = "GET"; body = "";
           }
@@ -669,7 +711,7 @@
       if (!rows.length) {
         throw new Error("fresh first HTML has no gallery pictures; see title/redirect above");
       }
-      log("v3.5.6 first HTML count=" + rows.length);
+      log("v3.5.7 first HTML count=" + rows.length);
       return rows;
     }
     async function bootstrap(ticket) {
@@ -689,7 +731,7 @@
       }
       galleryURL = url;
       save("gallery-link", url);
-      log("v3.5.6 fresh map.url ready; preview list not used");
+      log("v3.5.7 fresh map.url ready; preview list not used");
       firstRows = parseFirst(await request(url, "GET", "", "first HTML", ticket));
     }
     return {
@@ -700,7 +742,7 @@
           "page=" + page + "&item=" + ITEM + "&type=all", "page " + page, ticket);
         var list = parseJSON(text, "page " + page);
         if (!Array.isArray(list)) throw new Error("page " + page + " response is not an array");
-        log("v3.5.6 page=" + page + " count=" + list.length);
+        log("v3.5.7 page=" + page + " count=" + list.length);
         return list;
       }
     };
@@ -710,7 +752,7 @@
     return new Promise(function (resolve, reject) {
       var finished = false;
       var timer = setTimeout(function () {
-        finish(new Error("v3.5.6 page=" + page + " timeout; refresh to resume"));
+        finish(new Error("v3.5.7 page=" + page + " timeout; refresh to resume"));
       }, milliseconds);
       function finish(error, value) {
         if (finished) return;
@@ -744,7 +786,7 @@
       var firstSignature = first.map(function (r) { return r.path; }).join("|");
       if (work.next > 1 && work.first !== firstSignature) {
         work = { version: 30, started: now, next: 1, rows: [], last: "", first: "" };
-        log("v3.5.6 first page changed; restarting pagination");
+        log("v3.5.7 first page changed; restarting pagination");
       }
       work.first = firstSignature;
       var paths = Object.create(null), ids = Object.create(null);
@@ -804,7 +846,7 @@
     if (!isResponse) {
       if (session == null) { log("request session unavailable"); return done(); }
       var p = params(), v = endpoint === "hobby/album" ? null : virtualItem(p);
-      log("runtime=v3.5.6 phase=request endpoint=" + endpoint);
+      log("runtime=v3.5.7 phase=request endpoint=" + endpoint);
       if (endpoint === "album/detail" || endpoint === "pic/list/relate-v2" ||
           endpoint === "item/get") {
         var routeBits = [];
@@ -821,13 +863,16 @@
       var ctx = { session: session, time: Date.now(), endpoint: endpoint, p: p, v: v,
         target: ITEM };
       var output = {};
-      if (v && v.type === "normal-nav") {
+      if (v && v.type === "normal-owner") {
+        ctx.remapped = false;
+        log("v3.5.7 native album owner resolved itemId=" + v.route);
+      } else if (v && v.type === "normal-nav") {
         if (Number(p.itemId) !== Number(v.proxy)) {
           throw new Error("navigation proxy itemId missing");
         }
         output = changeRequest({ itemId: String(v.route) });
         ctx.remapped = true;
-        log("v3.5.6 native album navigation itemId restored " +
+        log("v3.5.7 native album navigation itemId restored " +
           v.proxy + "->" + v.route);
       } else if (v && v.type === "normal") {
         var proxyChanges = {};
@@ -839,7 +884,7 @@
         }
         output = changeRequest(proxyChanges);
         ctx.remapped = true;
-        log("v3.5.6 normal album proxy remapped to native route");
+        log("v3.5.7 normal album proxy remapped to native route");
       } else if (v) {
         var seed = read("seed:" + endpoint);
         if (!seed || !seed.p) throw new Error("open a normal Hpoi album first");
@@ -861,7 +906,7 @@
               !changes[k]) {
             if (!safeId) throw new Error("native album template has no safe ID field");
             changes[k] = safeId;
-            log("v3.5.6 remap request field " + k + " via template ID");
+            log("v3.5.7 remap request field " + k + " via template ID");
           }
         });
         output = changeRequest(changes);
@@ -879,6 +924,19 @@
     var doc;
     try { doc = JSON.parse($response.body); } catch (_) { return done(); }
     if (ctx && ctx.v) {
+      if (ctx.v.type === "normal-owner") {
+        if (doc.success !== true || !doc.data) return done();
+        if (endpoint === "pic/list/relate-v2") {
+          if (Array.isArray(doc.data.list) && doc.data.list.length &&
+              doc.data.list[0] && doc.data.list[0].pictureInfo) {
+            savePictureRowSeed(ctx.p, doc.data.list[0]);
+          }
+          if (injectGalleryIntoNativePictures(doc, ctx)) {
+            return done({ body: JSON.stringify(doc) });
+          }
+        }
+        return done();
+      }
       if (ctx.v.type === "normal-nav") {
         if (!ctx.remapped || doc.success !== true || !doc.data) return done();
         var navRestored = false;
@@ -893,6 +951,16 @@
             doc.data.itemData.itemId = ctx.v.proxy;
           }
           navRestored = true;
+        }
+        if (endpoint === "pic/list/relate-v2") {
+          if (Array.isArray(doc.data.list) && doc.data.list.length &&
+              doc.data.list[0] && doc.data.list[0].pictureInfo) {
+            savePictureRowSeed(ctx.p, doc.data.list[0]);
+          }
+          if (injectGalleryIntoNativePictures(doc, ctx)) {
+            log("native Hpoi album navigation proxy preserved");
+            return done({ body: JSON.stringify(doc) });
+          }
         }
         log("native Hpoi album navigation proxy preserved");
         return navRestored ? done({ body: JSON.stringify(doc) }) : done();
@@ -981,7 +1049,10 @@
       doc.data.list = doc.data.list.filter(function (a) {
         return Number(a && a.id) !== ALBUM && Number(a && a.itemId) !== ALBUM;
       });
-      // v3.5.6: Hpoi canonicalizes album cards by itemId. Give EXHOBBY the
+      doc.data.list.forEach(function (nativeAlbum) {
+        rememberAlbumOwner(nativeAlbum);
+      });
+      // v3.5.7: Hpoi canonicalizes album cards by itemId. Give EXHOBBY the
       // real navigation itemId, and move only that native album's itemId to a
       // local proxy. The native album id remains untouched.
       var dedicatedEntry = albumObject(gallery, null, ALBUM);
@@ -1013,7 +1084,7 @@
     done();
   }
   main().catch(function (e) {
-    log("v3.5.6 " + (e && e.message ? e.message : "operation failed"));
+    log("v3.5.7 " + (e && e.message ? e.message : "operation failed"));
     Promise.resolve().then(function () {
       if (e && e.verificationURL) return notifyVerification(e);
     }).catch(function () {}).then(function () {
