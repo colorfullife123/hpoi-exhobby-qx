@@ -2,8 +2,8 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
-assert(script.startsWith('// Hpoi + EXHOBBY native album v3.5.4'));
-assert.equal(pkg.version,'3.5.4');
+assert(script.startsWith('// Hpoi + EXHOBBY native album v3.5.5'));
+assert.equal(pkg.version,'3.5.5');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
@@ -72,13 +72,25 @@ const unwrap=r=>JSON.parse(r.body).data;
  const listA=unwrap(ra).list,listB=unwrap(rb).list;
  const homeA=listA[0],homeB=listB[0];
  assert.equal(homeA.id,1000000000+A);
- assert.equal(homeA.itemId,1000000000+A);
+ assert.equal(homeA.itemId,albumFor(A).itemId,'initial tap borrows only the native itemId');
  assert.equal(homeB.id,1000000000+B);
- assert.equal(homeB.itemId,1000000000+B);
+ assert.equal(homeB.itemId,albumFor(B).itemId,'each item borrows its own native itemId');
  assert.equal(homeA.picCount,45);assert.equal(homeB.picCount,27);
  assert.equal(homeA.cover,'/__exhobby__/2026/09/'+A+'-0.jpg');
  assert.equal(homeB.cover,'/__exhobby__/2026/09/'+B+'-0.jpg');
  assert.equal(homeA.name,'EXHOBBY 相册');
+ // Two-stage route: the card has synthetic id + native itemId. album/detail must
+ // identify EXHOBBY from the synthetic id and return a fully synthetic album.
+ const stagedJob=await h.begin('album/detail',
+   'id='+(1000000000+A)+'&itemId='+albumFor(A).itemId+'&itemType=album');
+ const stagedMapped=new URLSearchParams(stagedJob.mapped.body);
+ assert.equal(stagedMapped.get('id'),'214102','synthetic id is remapped safely for Hpoi backend');
+ assert.equal(stagedMapped.get('itemId'),String(albumFor(A).itemId),
+   'native itemId fallback remains valid for the initial backend request');
+ const stagedDetail=unwrap(await h.end(stagedJob,{success:true,data:{album:albumFor(A)}}));
+ assert.equal(stagedDetail.album.id,1000000000+A);
+ assert.equal(stagedDetail.album.itemId,1000000000+A,
+   'album/detail switches navigation to the fully synthetic EXHOBBY route');
  assert.equal(JSON.stringify(listA[1]),JSON.stringify(albumFor(A)),
    'first native Hpoi album must remain unchanged');
  assert.equal(JSON.stringify(listA[2]),JSON.stringify(secondAlbumFor(A)),
