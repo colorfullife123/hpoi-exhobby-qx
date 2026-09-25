@@ -2,14 +2,16 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
-assert(script.startsWith('// Hpoi + EXHOBBY native album v3.4.2'));
-assert.equal(pkg.version,'3.4.2');
+assert(script.startsWith('// Hpoi + EXHOBBY native album v3.4.3'));
+assert.equal(pkg.version,'3.4.3');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
 function html(id){return '<title>Gallery</title><script>query.item="'+id+'";</script>'+rows[id].slice(0,20).map(r=>'<figure><img src="https://res.e39x.com/pic/s/'+r.path+'"></figure>').join('');}
 const json=v=>({statusCode:200,headers:{'Content-Type':'application/json'},body:JSON.stringify(v)});
 const seedAlbum={id:12345678,itemId:214102,itemType:'album',categoryId:8,name:'Normal',picCount:2,cover:'normal.jpg',user:{id:1,nickname:'Real author'}};
+function albumFor(id){const d=id-A;return {...seedAlbum,id:seedAlbum.id+d*10,itemId:seedAlbum.itemId+d*10};}
+function secondAlbumFor(id){const d=id-A;return {...seedAlbum,id:12345778+d*10,itemId:214202+d*10,name:'Normal 2',cover:'normal-2.jpg'};}
 function harness(){
   const prefs=new Map(),logs=[],calls=[],notices=[];
  prefs.set(NS+'browser-session',JSON.stringify({cookie:'EXHOBBY_BROWSER_COOKIE',agent:'Safari fixture',time:Date.now()}));
@@ -56,70 +58,90 @@ function harness(){
  async function end(job,data){const req={...job.req,...job.mapped};delete req.body;return run(req,json(data));}
  async function rt(endpoint,body,data){return end(await begin(endpoint,body),data);}
  async function metadata(id){return rt('item/get','id='+id,{success:true,data:{itemData:{id,itemId:items[id],itemType:'hobby',cover:id+'.jpg'}}});}
- async function load(id){return rt('hobby/album','id='+id+'&page=1&pageSize=10&utoken=HPOI_PRIVATE_TOKEN',{success:true,data:{list:[seedAlbum]}});}
+ async function load(id){return rt('hobby/album','id='+id+'&page=1&pageSize=10&utoken=HPOI_PRIVATE_TOKEN',{success:true,data:{list:[albumFor(id),secondAlbumFor(id)]}});}
   return{prefs,logs,calls,notices,run,begin,end,rt,metadata,load,fail:(id,page)=>{failItem=id;failPage=page;},gate:id=>{ageGate=id;},barkFail:()=>{barkFails=true;}};
 }
 const unwrap=r=>JSON.parse(r.body).data;
 (async()=>{
  let h=harness();await h.metadata(A);await h.metadata(B);
  const ja=await h.begin('hobby/album','id='+A+'&page=1&pageSize=10'),jb=await h.begin('hobby/album','id='+B+'&page=1&pageSize=10');
- const [rb,ra]=await Promise.all([h.end(jb,{success:true,data:{list:[seedAlbum]}}),h.end(ja,{success:true,data:{list:[seedAlbum]}})]);
- assert.equal(unwrap(ra).list[0].id,1000000000+A);
- assert.equal(unwrap(rb).list[0].id,1000000000+B);
- assert.equal(unwrap(ra).list[0].itemId,seedAlbum.itemId,'homepage entry preserves a real native route fallback');
- assert.equal(unwrap(rb).list[0].itemId,seedAlbum.itemId,'each homepage entry preserves its native route fallback');
+ const [rb,ra]=await Promise.all([
+  h.end(jb,{success:true,data:{list:[albumFor(B),secondAlbumFor(B)]}}),
+  h.end(ja,{success:true,data:{list:[albumFor(A),secondAlbumFor(A)]}})
+ ]);
+ const homeA=unwrap(ra).list[0],homeB=unwrap(rb).list[0];
+ assert.equal(homeA.id,albumFor(A).itemId,'dedicated entry uses a real native route');
+ assert.equal(homeB.id,albumFor(B).itemId,'each entry reserves its own native route');
+ assert.equal(homeA.itemId,homeA.id);
+ assert.equal(homeB.itemId,homeB.id);
+ assert(homeA.id!==homeB.id,'different item entries cannot share a route');
  assert.equal(unwrap(ra).list[0].picCount,45);assert.equal(unwrap(rb).list[0].picCount,27);
  assert.equal(unwrap(ra).list[0].cover,'/__exhobby__/2026/09/'+A+'-0.jpg');
  assert.equal(unwrap(rb).list[0].cover,'/__exhobby__/2026/09/'+B+'-0.jpg');
  assert.equal(unwrap(ra).list[0].name,'EXHOBBY 相册');
  assert.equal(unwrap(ra).list[1].name,'Normal');
+ assert(unwrap(ra).list[1].id>=1400000000&&unwrap(ra).list[1].id<1900000000,'reserved native album receives a local proxy');
+ assert.equal(unwrap(ra).list[1].itemId,unwrap(ra).list[1].id,'normal album keeps one stable proxy route');
+ assert.equal(unwrap(ra).list[2].itemId,secondAlbumFor(A).itemId,'unreserved normal albums keep their native route');
  for(const id of[A,B]){const g=JSON.parse(h.prefs.get(NS+'all:'+id+':gallery'));assert(g.complete);assert(g.rows.every(r=>r.path.includes(id+'-')));}
- const pics=async(id,page)=>unwrap(await h.rt('pic/list/relate-v2','itemId='+(1000000000+id)+'&itemType=album&page='+page+'&pageSize=20',{success:true,data:{list:[]}})).list;
- const pa=await pics(A,1),pb=await pics(B,1);
+ const pics=async(route,page)=>unwrap(await h.rt('pic/list/relate-v2','itemId='+route+'&itemType=album&page='+page+'&pageSize=20',{success:true,data:{list:[]}})).list;
+ const pa=await pics(homeA.itemId,1),pb=await pics(homeB.itemId,1);
  assert.equal(pa.length,20);assert.equal(pb.length,20);
  assert.notEqual(pa[0].id,pb[0].id,'different gallery first photos cannot reuse native IDs');
- assert.equal((await pics(A,3)).length,5);assert.equal((await pics(B,2)).length,7);
- assert.equal((await pics(B,3)).length,0);
- let detail=unwrap(await h.rt('album/detail','id='+(1000000000+A),{success:true,data:{album:seedAlbum}}));
+ assert.equal((await pics(homeA.itemId,3)).length,5);assert.equal((await pics(homeB.itemId,2)).length,7);
+ assert.equal((await pics(homeB.itemId,3)).length,0);
+ let detail=unwrap(await h.rt('album/detail','id='+homeA.id,{success:true,data:{album:seedAlbum}}));
  assert.equal(detail.album.picCount,45);
  assert.equal(detail.album.cover,'/__exhobby__/2026/09/'+A+'-0.jpg');
- const itemIdDetailJob=await h.begin('album/detail','itemId='+(1000000000+A)+'&itemType=album');
+ const itemIdDetailJob=await h.begin('album/detail','itemId='+homeA.itemId+'&itemType=album');
  const remappedDetailParams=new URLSearchParams(itemIdDetailJob.mapped.body);
- assert.equal(remappedDetailParams.get('itemId'),'214102','virtual itemId is remapped through the normal album template ID');
+ assert.equal(remappedDetailParams.get('itemId'),'214102','dedicated itemId is remapped through the normal album template ID');
  assert.equal(remappedDetailParams.get('id'),'214102','normal template id is preserved for backend compatibility');
  detail=unwrap(await h.end(itemIdDetailJob,{success:true,data:{album:seedAlbum}}));
  assert.equal(detail.album.picCount,45,'album/detail accepts virtual itemId field variants');
  assert(!h.logs.some(line=>line.includes('unrecognized native album request field')),'field variants must not fall through to Hpoi');
  detail=unwrap(await h.rt('item/get','id='+pa[0].id,{success:true,data:{itemData:{}}}));
  assert.equal(detail.itemData.path,pa[0].pictureInfo.path,'photo details stay with A after visiting B');
- assert.equal(JSON.stringify(await h.rt('album/detail','id=214102',{success:true,data:{album:seedAlbum}})),'{}');
+ assert.equal(JSON.stringify(await h.rt('album/detail','id='+secondAlbumFor(A).itemId,
+   {success:true,data:{album:secondAlbumFor(A)}})),'{}','an unreserved Hpoi album stays native');
 
- // Every normal Hpoi album should expose EXHOBBY photos directly, without a cover item.
+ // Only the dedicated entry exposes EXHOBBY photos; every normal Hpoi album stays native.
  let inside=harness();await inside.metadata(A);
- const insideHome=unwrap(await inside.load(A)).list[0];
- assert.equal(insideHome.id,1000000000+A,'homepage card keeps a unique synthetic ID');
- assert.equal(insideHome.itemId,seedAlbum.itemId,'homepage card can fall back to the real native album route');
+ const insideList=unwrap(await inside.load(A)).list;
+ const insideHome=insideList[0],proxiedNormal=insideList[1],untouchedNormal=insideList[2];
+ assert.equal(insideHome.id,seedAlbum.itemId,'dedicated entry reserves the first real native route');
+ assert.equal(insideHome.itemId,seedAlbum.itemId,'dedicated card uses the same route in both fields');
  assert.equal(insideHome.cover,'/__exhobby__/2026/09/'+A+'-0.jpg','homepage card uses the first real EXHOBBY photo');
  const normalPicture={id:901,itemId:902,itemType:'pic',categoryId:6,path:'normal-inside.jpg',name:'Normal picture'};
- let insidePage=unwrap(await inside.rt('pic/list/relate-v2',
+ let dedicatedPage=unwrap(await inside.rt('pic/list/relate-v2',
    'itemId='+insideHome.itemId+'&itemType=album&page=1&pageSize=20',
    {success:true,data:{list:[{id:901,rank:1,pictureInfo:normalPicture}]}})).list;
- assert.equal(insidePage.length,46,'complete EXHOBBY sequence and Hpoi pictures are returned together');
- assert.equal(insidePage[0].pictureInfo.path,'/__exhobby__/2026/09/'+A+'-0.jpg');
- assert.equal(insidePage[44].pictureInfo.path,'/__exhobby__/2026/09/'+A+'-44.jpg');
- assert.equal(insidePage[45].pictureInfo.path,'normal-inside.jpg');
- assert(insidePage.slice(0,45).every(row=>row.pictureInfo.itemType==='pic'));
- assert(!insidePage.some(row=>row.pictureInfo.path.includes('cover-v3.2.png')),'branded cover is absent inside native albums');
- assert.equal(unwrap(await inside.rt('item/get','id='+insidePage[0].id,
-   {success:true,data:{itemData:{}}})).itemData.path,insidePage[0].pictureInfo.path,
-   'embedded EXHOBBY photos keep native detail navigation');
- let insidePage2=await inside.rt('pic/list/relate-v2',
-   'itemId=214102&itemType=album&page=2&pageSize=20',
-   {success:true,data:{list:[{id:903,rank:21,pictureInfo:{...normalPicture,id:903,itemId:904,path:'normal-page2.jpg'}}]}});
- assert.equal(JSON.stringify(insidePage2),'{}','EXHOBBY entry is only injected on page 1');
- let insideTap=unwrap(await inside.rt('item/get','id='+(1000000000+A),
+ assert.equal(dedicatedPage.length,20,'dedicated album returns one native-sized EXHOBBY page');
+ assert.equal(dedicatedPage[0].pictureInfo.path,'/__exhobby__/2026/09/'+A+'-0.jpg');
+ assert(dedicatedPage.every(row=>row.pictureInfo.itemType==='pic'));
+ assert(!dedicatedPage.some(row=>row.pictureInfo.path.includes('cover-v3.2.png')),'dedicated album starts with a real EXHOBBY photo');
+ assert.equal(unwrap(await inside.rt('item/get','id='+dedicatedPage[0].id,
+   {success:true,data:{itemData:{}}})).itemData.path,dedicatedPage[0].pictureInfo.path,
+   'dedicated EXHOBBY photos keep native detail navigation');
+ const normalDetailJob=await inside.begin('album/detail','itemId='+proxiedNormal.itemId+'&itemType=album');
+ assert.equal(new URLSearchParams(normalDetailJob.mapped.body).get('itemId'),String(seedAlbum.itemId),'normal proxy remaps to its real Hpoi route');
+ const normalDetail=unwrap(await inside.end(normalDetailJob,{success:true,data:{album:seedAlbum}}));
+ assert.equal(normalDetail.album.itemId,proxiedNormal.itemId,'normal album detail keeps the proxy for later picture requests');
+ const normalItem=unwrap(await inside.rt('item/get','id='+proxiedNormal.id,
+   {success:true,data:{itemData:seedAlbum}}));
+ assert.equal(normalItem.itemData.id,proxiedNormal.id,'normal album item detail also keeps the proxy route');
+ assert.equal(normalItem.itemData.name,'Normal','normal album item detail is not replaced by EXHOBBY');
+ const proxiedPage=await inside.rt('pic/list/relate-v2',
+   'itemId='+proxiedNormal.itemId+'&itemType=album&page=1&pageSize=20',
+   {success:true,data:{list:[{id:901,rank:1,pictureInfo:normalPicture}]}});
+ assert.equal(JSON.stringify(proxiedPage),'{}','proxied normal album response is not modified');
+ const untouchedPage=await inside.rt('pic/list/relate-v2',
+   'itemId='+untouchedNormal.itemId+'&itemType=album&page=1&pageSize=20',
+   {success:true,data:{list:[{id:901,rank:1,pictureInfo:normalPicture}]}});
+ assert.equal(JSON.stringify(untouchedPage),'{}','every other normal album response is not modified');
+ let insideTap=unwrap(await inside.rt('item/get','id='+insideHome.id,
    {success:true,data:{itemData:{}}}));
- assert.equal(insideTap.itemData.itemType,'album','synthetic homepage ID keeps virtual-album compatibility');
+ assert.equal(insideTap.itemData.itemType,'album','dedicated native route returns the virtual EXHOBBY album');
  assert.equal(insideTap.itemData.picCount,45);
 
  const count=h.calls.length;await h.load(A);assert.equal(h.calls.length,count,'A cache is reused separately');
@@ -208,7 +230,7 @@ const unwrap=r=>JSON.parse(r.body).data;
   assert(upgrade>=0&&capture>upgrade,file+' must upgrade HTTP before HTTPS session capture');
   if(file==='hpoi-exhobby.snippet'){
    const remoteScripts=rules.filter(line=>line.includes('url script-')&&line.includes('hpoi-exhobby.js'));
-   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.4.2')),
+   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.4.3')),
     'remote EXHOBBY scripts must bypass the prior URL cache');
   }
   const [upgradeSource,upgradeTarget]=rules[upgrade].split(' url 307 ');
@@ -237,9 +259,9 @@ const unwrap=r=>JSON.parse(r.body).data;
   'HPOI hosts must not be in the ad subscription: force-policy=reject would block them');
  const cover=fs.readFileSync(path.join(__dirname,'..','assets/exhobby-cover-v3.2.png'));
  assert.equal(cover.subarray(0,8).toString('hex'),'89504e470d0a1a0a','cover is a PNG');
- console.log('PASS: concurrent/out-of-order entries, homepage route fallback, native album/photo navigation, and pagination tails.');
+ console.log('PASS: concurrent/out-of-order entries, dedicated native routes, EXHOBBY pagination, and photo navigation.');
  console.log('PASS: existing session/templates reused, global ID fallback, empty entries, failure isolation/resumption, and ID collision handling.');
-  console.log('PASS: direct in-album photos omit the EXHOBBY cover; no Hpoi credentials forwarded or logged.');
+  console.log('PASS: only the dedicated EXHOBBY entry exposes gallery photos; normal Hpoi albums stay unchanged.');
   console.log('PASS: age reminders, accepted old cookies, notification cooldown, saved gallery links and optional Bark privacy.');
   console.log('PASS: v3.3 upgrades legacy HTTP gallery URLs with POST-preserving 307 rules before session capture.');
   console.log('PASS: v3.3.1 keeps third-party ad SDK hosts out of MITM and HPOI core hosts out of force-policy=reject subscriptions.');
