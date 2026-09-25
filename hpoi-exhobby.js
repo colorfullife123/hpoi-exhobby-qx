@@ -303,19 +303,24 @@
       Number(info && info.id) > PIC_BASE ||
       /^\/__exhobby__\//.test(String(info && info.path || ""));
   }
-  function injectGalleryIntoNativePictures(doc, ctx) {
+  async function injectGalleryIntoNativePictures(doc, ctx) {
     if (!doc || !doc.data || !Array.isArray(doc.data.list)) return false;
     var page = Math.max(1, Number(ctx && ctx.p && ctx.p.page) || 1);
     if (page !== 1) return false;
-    var gallery = read("gallery");
-    if (!gallery || !gallery.complete || gallery.version !== 30 ||
-        !Array.isArray(gallery.rows) || !gallery.rows.length) return false;
+    var albumItemId = Number(ctx && ctx.v && ctx.v.route);
+    var gallery = await loadAlbumGallery(albumItemId);
+    if (!gallery || !gallery.complete || gallery.version !== 31 ||
+        !gallery.scoped || !Array.isArray(gallery.rows) || !gallery.rows.length) {
+      log("native album itemId=" + albumItemId + " has no scoped EXHOBBY gallery");
+      return false;
+    }
     var nativeRows = doc.data.list.filter(function (row) {
       return !isEmbeddedExhobbyRow(row);
     });
     doc.data.list = embeddedGalleryPictures(gallery).concat(nativeRows);
-    log("EXHOBBY pictures added inside native album; exhobby=" +
-      gallery.rows.length + " native=" + nativeRows.length);
+    log("scoped EXHOBBY pictures added inside native album itemId=" +
+      albumItemId + "; exhobby=" + gallery.rows.length +
+      " native=" + nativeRows.length);
     return true;
   }
   function navigationProxy(album) {
@@ -704,9 +709,14 @@
   }
   var exClient = null;
 
-  function makeExClient() {
+  function makeExClient(options) {
+    options = options || {};
     var root = "https://www.exhobby.net";
-    var galleryURL = "", firstRows = null;
+    var galleryURL = "", firstRows = null, pageItem = 0;
+    var targetType = options.itemType === "album" ? "album" : "hobby";
+    var targetItemId = Number(options.itemId || (targetType === "album" ? 0 : HOBBY));
+    var expectedPageItem = Number(options.expectedPageItem || (targetType === "hobby" ? ITEM : 0));
+    var scopeLabel = targetType + ":" + (targetItemId || ITEM);
     var browser = read("browser-session");
     if (!browser || typeof browser.cookie !== "string" || !browser.cookie ||
         /[\r\n]/.test(browser.cookie) || !Number.isFinite(browser.time)) {
@@ -846,8 +856,13 @@
       if (verificationPage(html)) {
         throw verificationRequired("EXHOBBY requires browser verification; reopen its gallery in Safari and tap More", galleryURL);
       }
-      if (actualItem !== null && actualItem !== ITEM) {
+      if (targetType === "hobby" && actualItem !== null &&
+          expectedPageItem && actualItem !== expectedPageItem) {
         throw new Error("first HTML belongs to a different item");
+      }
+      pageItem = actualItem || expectedPageItem || ITEM;
+      if (!validItem(Number(pageItem))) {
+        throw new Error("EXHOBBY gallery page item is invalid");
       }
       var figures = html.match(/<figure\b[^>]*>[\s\S]*?<\/figure>/gi) || [];
       var blocks = figures.length ? figures : (html.match(/<a\b[^>]*>/gi) || []);
@@ -867,11 +882,19 @@
       if (!rows.length) {
         throw new Error("fresh first HTML has no gallery pictures; see title/redirect above");
       }
-      log("v3.5.9 first HTML count=" + rows.length);
+      log("v3.5.9 " + scopeLabel + " first HTML count=" + rows.length);
       return rows;
     }
     async function bootstrap(ticket) {
-      var query = HOBBY ? "itemId=" + HOBBY + "&itemType=hobby" : "id=" + ITEM;
+      var query;
+      if (targetType === "album") {
+        if (!Number.isInteger(targetItemId) || targetItemId <= 0 || targetItemId >= ALBUM_BASE) {
+          throw new Error("invalid native album itemId for EXHOBBY lookup");
+        }
+        query = "itemId=" + targetItemId + "&itemType=album";
+      } else {
+        query = HOBBY ? "itemId=" + HOBBY + "&itemType=hobby" : "id=" + ITEM;
+      }
       var text = await request(root + "/get/pic?" + query, "POST", "", "resolve link", ticket);
       var data = parseJSON(text, "resolve link");
       if (data && data.success !== false && data.map &&
@@ -886,29 +909,29 @@
         throw new Error("map.url is not a full picture link");
       }
       galleryURL = url;
-      save("gallery-link", url);
-      log("v3.5.9 fresh map.url ready; preview list not used");
+      if (targetType === "hobby") save("gallery-link", url);
+      log("v3.5.9 " + scopeLabel + " fresh map.url ready; preview list not used");
       firstRows = parseFirst(await request(url, "GET", "", "first HTML", ticket));
     }
     return {
       page: async function (page, ticket) {
         if (firstRows === null) await bootstrap(ticket);
         if (page === 1) return firstRows;
-        var text = await request(root + "/picture/" + ITEM, "POST",
-          "page=" + page + "&item=" + ITEM + "&type=all", "page " + page, ticket);
+        var text = await request(root + "/picture/" + pageItem, "POST",
+          "page=" + page + "&item=" + pageItem + "&type=all", "page " + page, ticket);
         var list = parseJSON(text, "page " + page);
         if (!Array.isArray(list)) throw new Error("page " + page + " response is not an array");
-        log("v3.5.9 page=" + page + " count=" + list.length);
+        log("v3.5.9 " + scopeLabel + " page=" + page + " count=" + list.length);
         return list;
       }
     };
   }
-  function fetchPage(page, milliseconds) {
-    if (!exClient) exClient = makeExClient();
+  function fetchClientPage(client, page, milliseconds, label) {
     return new Promise(function (resolve, reject) {
       var finished = false;
       var timer = setTimeout(function () {
-        finish(new Error("v3.5.9 page=" + page + " timeout; refresh to resume"));
+        finish(new Error("v3.5.9 " + (label || "gallery") +
+          " page=" + page + " timeout; refresh to resume"));
       }, milliseconds);
       function finish(error, value) {
         if (finished) return;
@@ -919,10 +942,137 @@
       var ticket = { check: function () {
         if (finished) throw new Error("request expired");
       } };
-      exClient.page(page, ticket).then(function (value) {
+      client.page(page, ticket).then(function (value) {
         finish(null, value);
       }, function (error) { finish(error); });
     });
+  }
+  function fetchPage(page, milliseconds) {
+    if (!exClient) exClient = makeExClient({
+      itemType: "hobby", itemId: HOBBY, expectedPageItem: ITEM
+    });
+    return fetchClientPage(exClient, page, milliseconds, "hobby");
+  }
+
+  function sanitizeGalleryRows(list, state) {
+    var paths = state.paths, ids = state.ids;
+    var additions = [], pagePaths = Object.create(null), pageIds = Object.create(null);
+    list.forEach(function (r) {
+      var path = String(r.path || "").replace(/^\/+/, ""), id = Number(r.id);
+      if (!path || path.length > 500 || !/^[a-z0-9_./-]+$/i.test(path) ||
+          path.split("/").some(function (part) { return part === "." || part === ".." || !part; }) ||
+          !Number.isInteger(id) || id <= 0 || id >= 140000000) {
+        throw new Error("unsupported EXHOBBY picture metadata");
+      }
+      if ((ids[id] && ids[id] !== path) || (pageIds[id] && pageIds[id] !== path)) {
+        throw new Error("conflicting EXHOBBY picture IDs");
+      }
+      pageIds[id] = path;
+      if (!paths[path] && !pagePaths[path]) {
+        pagePaths[path] = true;
+        var row = { id: id, path: path };
+        ["width", "height", "size"].forEach(function (k) {
+          var n = Number(r[k]);
+          if (Number.isFinite(n) && n > 0) row[k] = n;
+        });
+        additions.push(row);
+      }
+    });
+    additions.forEach(function (r) {
+      paths[r.path] = true; ids[r.id] = r.path;
+    });
+    return additions;
+  }
+
+  function sameGalleryRows(a, b) {
+    if (!a || !b || !Array.isArray(a.rows) || !Array.isArray(b.rows) ||
+        a.rows.length !== b.rows.length) return false;
+    for (var i = 0; i < a.rows.length; i++) {
+      if (String(a.rows[i].path) !== String(b.rows[i].path)) return false;
+    }
+    return true;
+  }
+
+  async function loadAlbumGallery(albumItemId) {
+    albumItemId = Number(albumItemId);
+    if (!Number.isInteger(albumItemId) || albumItemId <= 0 || albumItemId >= ALBUM_BASE) {
+      return { version: 31, complete: true, time: Date.now(), rows: [], scoped: false };
+    }
+    trackCacheValue("albums", albumItemId);
+    var prefix = ITEM + ":" + albumItemId;
+    var complete = readRaw("album-gallery:" + prefix), now = Date.now();
+    if (complete && complete.complete && complete.version === 31 &&
+        now - Number(complete.time) < ALBUM_GALLERY_TTL) return complete;
+
+    var lockKey = "album-lock:" + prefix, workKey = "album-work:" + prefix;
+    var lock = readRaw(lockKey);
+    if (lock && now < Number(lock.until || 0)) {
+      return complete && complete.complete ? complete :
+        { version: 31, complete: true, time: now, rows: [], scoped: false };
+    }
+
+    var owner = String(now) + Math.random();
+    saveRaw(lockKey, { owner: owner, until: now + 6500 });
+    var work = readRaw(workKey);
+    if (!work || work.version !== 31 || now - Number(work.started || 0) > 120000) {
+      work = { version: 31, started: now, next: 1, rows: [], last: "", first: "" };
+    }
+    var client = makeExClient({ itemType: "album", itemId: albumItemId, expectedPageItem: 0 });
+    var deadline = now + 5500;
+    try {
+      var first = await fetchClientPage(client, 1, Math.max(100, deadline - Date.now()),
+        "album:" + albumItemId);
+      var firstSignature = first.map(function (r) { return r.path; }).join("|");
+      if (work.next > 1 && work.first !== firstSignature) {
+        work = { version: 31, started: now, next: 1, rows: [], last: "", first: "" };
+      }
+      work.first = firstSignature;
+
+      var state = { paths: Object.create(null), ids: Object.create(null) };
+      work.rows.forEach(function (r) {
+        state.paths[r.path] = true; state.ids[r.id] = r.path;
+      });
+
+      while (Date.now() < deadline - 150) {
+        var list = work.next === 1 ? first :
+          await fetchClientPage(client, work.next, Math.max(100, deadline - Date.now()),
+            "album:" + albumItemId);
+        if (!list.length) {
+          complete = { version: 31, complete: true, time: Date.now(),
+            rows: work.rows, scoped: true, albumItemId: albumItemId };
+          var full = read("gallery");
+          var index = cacheIndex(), entry = index[String(ITEM)] || {};
+          var multipleAlbums = Array.isArray(entry.albums) && entry.albums.length > 1;
+          if (multipleAlbums && full && full.complete && sameGalleryRows(complete, full)) {
+            complete.rows = [];
+            complete.scoped = false;
+            log("album=" + albumItemId +
+              " EXHOBBY resolver returned full hobby gallery; skip native injection");
+          }
+          saveRaw("album-gallery:" + prefix, complete);
+          $prefs.removeValueForKey(NS + workKey);
+          log("album=" + albumItemId + " EXHOBBY scoped total=" +
+            complete.rows.length + " scoped=" + complete.scoped);
+          return complete;
+        }
+        var signature = list.map(function (r) {
+          return String(r.id) + ":" + String(r.path);
+        }).join("|");
+        if (signature === work.last) throw new Error("repeated EXHOBBY album page");
+        var additions = sanitizeGalleryRows(list, state);
+        additions.forEach(function (r) { work.rows.push(r); });
+        work.last = signature; work.next++;
+        saveRaw(workKey, work);
+      }
+      throw new Error("EXHOBBY album pagination timeout");
+    } catch (e) {
+      log("album=" + albumItemId + " scoped gallery unavailable: " +
+        (e && e.message ? e.message : "unknown"));
+      return { version: 31, complete: true, time: Date.now(), rows: [], scoped: false };
+    } finally {
+      var current = readRaw(lockKey);
+      if (current && current.owner === owner) $prefs.removeValueForKey(NS + lockKey);
+    }
   }
 
   async function loadGallery() {
@@ -1088,7 +1238,7 @@
               doc.data.list[0] && doc.data.list[0].pictureInfo) {
             savePictureRowSeed(ctx.p, doc.data.list[0]);
           }
-          if (injectGalleryIntoNativePictures(doc, ctx)) {
+          if (await injectGalleryIntoNativePictures(doc, ctx)) {
             return done({ body: JSON.stringify(doc) });
           }
         }
@@ -1114,7 +1264,7 @@
               doc.data.list[0] && doc.data.list[0].pictureInfo) {
             savePictureRowSeed(ctx.p, doc.data.list[0]);
           }
-          if (injectGalleryIntoNativePictures(doc, ctx)) {
+          if (await injectGalleryIntoNativePictures(doc, ctx)) {
             log("native Hpoi album navigation proxy preserved");
             return done({ body: JSON.stringify(doc) });
           }
