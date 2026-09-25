@@ -75,6 +75,7 @@ const unwrap=r=>JSON.parse(r.body).data;
  assert.equal(homeA.itemId,homeA.id,'EXHOBBY id and itemId use the same unique local route');
  assert(homeB.id>=800000000&&homeB.id<1000000000,'each item gets a native-looking local route');
  assert.equal(homeB.itemId,homeB.id,'each EXHOBBY card keeps a unique local route');
+ assert.notEqual(homeA.id,homeB.id,'different hobbies must not reuse the same EXHOBBY route');
  assert.equal(homeA.picCount,45);assert.equal(homeB.picCount,27);
  assert.equal(homeA.cover,'/__exhobby__/2026/09/'+A+'-0.jpg');
  assert.equal(homeB.cover,'/__exhobby__/2026/09/'+B+'-0.jpg');
