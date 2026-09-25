@@ -2,8 +2,8 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
-assert(script.startsWith('// Hpoi + EXHOBBY native album v3.5.9'));
-assert.equal(pkg.version,'3.5.9');
+assert(script.startsWith('// Hpoi + EXHOBBY native album v3.6.0'));
+assert.equal(pkg.version,'3.6.0');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
@@ -189,6 +189,26 @@ const unwrap=r=>JSON.parse(r.body).data;
  resume.fail(0,0);await resume.load(A);
  assert.equal(JSON.parse(resume.prefs.get(NS+'all:'+A+':gallery')).rows.length,45);
 
+ // Standalone album opened outside a hobby page self-registers and resolves its own EXHOBBY gallery.
+ let standalone=harness();
+ const standaloneAlbum={id:40154473,itemId:404807,itemType:'album',name:'Standalone',user:{}};
+ // Mock a scoped EXHOBBY cache for this standalone album to isolate route registration behavior.
+ standalone.prefs.set(NS+'album-gallery:40154473:404807',JSON.stringify({
+  version:31,complete:true,time:Date.now(),scoped:true,albumItemId:404807,
+  rows:[{id:701,path:'standalone/1.jpg'},{id:702,path:'standalone/2.jpg'}]
+ }));
+ await standalone.rt('album/detail','id=40154473&itemId=404807',
+  {success:true,data:{album:standaloneAlbum}});
+ const standaloneMap=JSON.parse(standalone.prefs.get(NS+'standalone-album:404807'));
+ assert.equal(standaloneMap.item,40154473,'standalone album registers its own local scope');
+ assert.equal(standaloneMap.itemId,404807);
+ const standalonePics=unwrap(await standalone.rt('pic/list/relate-v2',
+  'itemId=404807&itemType=album&page=1&pageSize=20',
+  {success:true,data:{list:[{id:9901,rank:1,subType:7,pictureInfo:{id:9901,itemId:9902,itemType:'pic',path:'standalone-native.jpg'}}]}})).list;
+ assert.equal(standalonePics.filter(r=>String(r.pictureInfo&&r.pictureInfo.path||'').startsWith('/__exhobby__/')).length,2,
+  'standalone album injects its own scoped EXHOBBY gallery');
+ assert.equal(standalonePics.at(-1).pictureInfo.path,'standalone-native.jpg');
+
  const browserReq={url:'https://www.exhobby.net/picture/'+B,method:'POST',headers:{Cookie:'NEW_COOKIE','User-Agent':'New Safari'}};
  await h.run(browserReq,json(rows[B].slice(20)));
   assert.equal(JSON.parse(h.prefs.get(NS+'browser-session')).cookie,'NEW_COOKIE','browser capture supports another item');
@@ -250,9 +270,9 @@ const unwrap=r=>JSON.parse(r.body).data;
   const capture=rules.findIndex(line=>line.includes('url script-response-body')&&line.includes('www\\.exhobby\\.net/picture'));
   assert(upgrade>=0&&capture>upgrade,file+' must upgrade HTTP before HTTPS session capture');
   if(file==='hpoi-exhobby.snippet'){
-   const remoteScripts=rules.filter(line=>line.includes('url script-')&&line.includes('hpoi-exhobby-v3.5.9.js'));
-   assert(remoteScripts.length>=4&&remoteScripts.every(line=>line.includes('hpoi-exhobby-v3.5.9.js')),
-    'remote EXHOBBY scripts must use the versioned v3.5.9 runtime');
+   const remoteScripts=rules.filter(line=>line.includes('url script-')&&line.includes('hpoi-exhobby-v3.6.0.js'));
+   assert(remoteScripts.length>=4&&remoteScripts.every(line=>line.includes('hpoi-exhobby-v3.6.0.js')),
+    'remote EXHOBBY scripts must use the versioned v3.6.0 runtime');
   }
   const [upgradeSource,upgradeTarget]=rules[upgrade].split(' url 307 ');
   const upgradePattern=new RegExp(upgradeSource);
