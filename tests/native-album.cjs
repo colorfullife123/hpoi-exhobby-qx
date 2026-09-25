@@ -2,8 +2,8 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
-assert(script.startsWith('// Hpoi + EXHOBBY native album v3.4.4'));
-assert.equal(pkg.version,'3.4.4');
+assert(script.startsWith('// Hpoi + EXHOBBY native album v3.5.0'));
+assert.equal(pkg.version,'3.5.0');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
@@ -69,97 +69,51 @@ const unwrap=r=>JSON.parse(r.body).data;
   h.end(jb,{success:true,data:{list:[albumFor(B),secondAlbumFor(B)]}}),
   h.end(ja,{success:true,data:{list:[albumFor(A),secondAlbumFor(A)]}})
  ]);
- const homeA=unwrap(ra).list[0],homeB=unwrap(rb).list[0];
- assert.equal(homeA.id,1000000000+A,'dedicated card gets its own object id');
- assert.equal(homeB.id,1000000000+B,'different dedicated cards get separate local object ids');
- assert.equal(homeA.itemId,albumFor(A).itemId,'dedicated entry keeps the real Hpoi navigation route');
- assert.equal(homeB.itemId,albumFor(B).itemId,'each entry keeps its own native navigation route');
- assert.notEqual(homeA.id,homeA.itemId,'object id stays separate from navigation route');
- assert(homeA.id!==homeB.id,'different item entries cannot share an object id');
- assert.equal(unwrap(ra).list[0].picCount,45);assert.equal(unwrap(rb).list[0].picCount,27);
- assert.equal(unwrap(ra).list[0].cover,'/__exhobby__/2026/09/'+A+'-0.jpg');
- assert.equal(unwrap(rb).list[0].cover,'/__exhobby__/2026/09/'+B+'-0.jpg');
- assert.equal(unwrap(ra).list[0].name,'EXHOBBY 相册');
- assert.equal(unwrap(ra).list[1].name,'Normal');
- assert.equal(unwrap(ra).list[1].id,albumFor(A).id,
-   'proxying the normal album must preserve its non-route object id');
- assert(unwrap(ra).list[1].itemId>=1400000000&&unwrap(ra).list[1].itemId<1900000000,
-   'only the real navigation field receives a local proxy');
- assert.notEqual(unwrap(ra).list[1].itemId,unwrap(ra).list[1].id,
-   'object id and route id must not be collapsed');
- assert.equal(unwrap(ra).list[2].itemId,secondAlbumFor(A).itemId,'unreserved normal albums keep their native route');
+ const listA=unwrap(ra).list,listB=unwrap(rb).list;
+ const homeA=listA[0],homeB=listB[0];
+ assert.equal(homeA.id,1000000000+A);
+ assert.equal(homeA.itemId,1000000000+A);
+ assert.equal(homeB.id,1000000000+B);
+ assert.equal(homeB.itemId,1000000000+B);
+ assert.equal(homeA.picCount,45);assert.equal(homeB.picCount,27);
+ assert.equal(homeA.cover,'/__exhobby__/2026/09/'+A+'-0.jpg');
+ assert.equal(homeB.cover,'/__exhobby__/2026/09/'+B+'-0.jpg');
+ assert.equal(homeA.name,'EXHOBBY 相册');
+ assert.equal(JSON.stringify(listA[1]),JSON.stringify(albumFor(A)),
+   'first native Hpoi album must remain unchanged');
+ assert.equal(JSON.stringify(listA[2]),JSON.stringify(secondAlbumFor(A)),
+   'second native Hpoi album must remain unchanged');
+ assert.equal(JSON.stringify(listB[1]),JSON.stringify(albumFor(B)),
+   'native albums stay isolated for every item');
  for(const id of[A,B]){const g=JSON.parse(h.prefs.get(NS+'all:'+id+':gallery'));assert(g.complete);assert(g.rows.every(r=>r.path.includes(id+'-')));}
- const pics=async(route,page)=>unwrap(await h.rt('pic/list/relate-v2','itemId='+route+'&itemType=album&page='+page+'&pageSize=20',{success:true,data:{list:[]}})).list;
- const pa=await pics(homeA.itemId,1),pb=await pics(homeB.itemId,1);
+ const pics=async(id,page)=>unwrap(await h.rt('pic/list/relate-v2','itemId='+(1000000000+id)+'&itemType=album&page='+page+'&pageSize=20',{success:true,data:{list:[]}})).list;
+ const pa=await pics(A,1),pb=await pics(B,1);
  assert.equal(pa.length,20);assert.equal(pb.length,20);
  assert.notEqual(pa[0].id,pb[0].id,'different gallery first photos cannot reuse native IDs');
- assert.equal((await pics(homeA.itemId,3)).length,5);assert.equal((await pics(homeB.itemId,2)).length,7);
- assert.equal((await pics(homeB.itemId,3)).length,0);
- let detail=unwrap(await h.rt('album/detail','id='+homeA.id,{success:true,data:{album:seedAlbum}}));
+ assert.equal((await pics(A,3)).length,5);assert.equal((await pics(B,2)).length,7);
+ assert.equal((await pics(B,3)).length,0);
+ let detail=unwrap(await h.rt('album/detail','id='+(1000000000+A),{success:true,data:{album:seedAlbum}}));
  assert.equal(detail.album.picCount,45);
  assert.equal(detail.album.cover,'/__exhobby__/2026/09/'+A+'-0.jpg');
- const itemIdDetailJob=await h.begin('album/detail','itemId='+homeA.itemId+'&itemType=album');
+ const itemIdDetailJob=await h.begin('album/detail','itemId='+(1000000000+A)+'&itemType=album');
  const remappedDetailParams=new URLSearchParams(itemIdDetailJob.mapped.body);
- assert.equal(remappedDetailParams.get('itemId'),'214102','dedicated itemId is remapped through the normal album template ID');
- assert.equal(remappedDetailParams.get('id'),'214102','normal template id is preserved for backend compatibility');
+ assert.equal(remappedDetailParams.get('itemId'),'214102');
+ assert.equal(remappedDetailParams.get('id'),'214102');
  detail=unwrap(await h.end(itemIdDetailJob,{success:true,data:{album:seedAlbum}}));
- assert.equal(detail.album.picCount,45,'album/detail accepts virtual itemId field variants');
- assert(!h.logs.some(line=>line.includes('unrecognized native album request field')),'field variants must not fall through to Hpoi');
+ assert.equal(detail.album.picCount,45);
  detail=unwrap(await h.rt('item/get','id='+pa[0].id,{success:true,data:{itemData:{}}}));
- assert.equal(detail.itemData.path,pa[0].pictureInfo.path,'photo details stay with A after visiting B');
- assert.equal(JSON.stringify(await h.rt('album/detail','id='+secondAlbumFor(A).itemId,
-   {success:true,data:{album:secondAlbumFor(A)}})),'{}','an unreserved Hpoi album stays native');
-
- // Only the dedicated entry exposes EXHOBBY photos; every normal Hpoi album stays native.
- let inside=harness();await inside.metadata(A);
- const insideList=unwrap(await inside.load(A)).list;
- const insideHome=insideList[0],proxiedNormal=insideList[1],untouchedNormal=insideList[2];
- assert.equal(insideHome.id,1000000000+A,
-   'dedicated entry uses a unique local object id');
- assert.equal(insideHome.itemId,seedAlbum.itemId,
-   'dedicated entry keeps the actual native navigation route');
- assert.notEqual(insideHome.id,insideHome.itemId,
-   'dedicated card separates object identity from navigation identity');
- assert.equal(proxiedNormal.id,seedAlbum.id,
-   'displaced normal album preserves its original object id');
- assert.equal(insideHome.cover,'/__exhobby__/2026/09/'+A+'-0.jpg','homepage card uses the first real EXHOBBY photo');
- const normalPicture={id:901,itemId:902,itemType:'pic',categoryId:6,path:'normal-inside.jpg',name:'Normal picture'};
- let dedicatedPage=unwrap(await inside.rt('pic/list/relate-v2',
-   'itemId='+insideHome.itemId+'&itemType=album&page=1&pageSize=20',
-   {success:true,data:{list:[{id:901,rank:1,pictureInfo:normalPicture}]}})).list;
- assert.equal(dedicatedPage.length,20,'dedicated album returns one native-sized EXHOBBY page');
- assert.equal(dedicatedPage[0].pictureInfo.path,'/__exhobby__/2026/09/'+A+'-0.jpg');
- assert(dedicatedPage.every(row=>row.pictureInfo.itemType==='pic'));
- assert(!dedicatedPage.some(row=>row.pictureInfo.path.includes('cover-v3.2.png')),'dedicated album starts with a real EXHOBBY photo');
- assert.equal(unwrap(await inside.rt('item/get','id='+dedicatedPage[0].id,
-   {success:true,data:{itemData:{}}})).itemData.path,dedicatedPage[0].pictureInfo.path,
-   'dedicated EXHOBBY photos keep native detail navigation');
- const normalDetailJob=await inside.begin('album/detail','itemId='+proxiedNormal.itemId+'&itemType=album');
- assert.equal(new URLSearchParams(normalDetailJob.mapped.body).get('itemId'),String(seedAlbum.itemId),'normal proxy remaps to its real Hpoi route');
- const normalDetail=unwrap(await inside.end(normalDetailJob,{success:true,data:{album:seedAlbum}}));
- assert.equal(normalDetail.album.id,seedAlbum.id,
-   'normal album detail preserves its native object id');
- assert.equal(normalDetail.album.itemId,proxiedNormal.itemId,
-   'normal album detail restores the proxy only on the route field');
- const normalItem=unwrap(await inside.rt('item/get','itemId='+proxiedNormal.itemId,
-   {success:true,data:{itemData:seedAlbum}}));
- assert.equal(normalItem.itemData.id,seedAlbum.id,
-   'normal album item detail preserves its native object id');
- assert.equal(normalItem.itemData.itemId,proxiedNormal.itemId,
-   'normal album item detail restores the proxy route without collapsing ids');
- assert.equal(normalItem.itemData.name,'Normal','normal album item detail is not replaced by EXHOBBY');
- const proxiedPage=await inside.rt('pic/list/relate-v2',
-   'itemId='+proxiedNormal.itemId+'&itemType=album&page=1&pageSize=20',
-   {success:true,data:{list:[{id:901,rank:1,pictureInfo:normalPicture}]}});
- assert.equal(JSON.stringify(proxiedPage),'{}','proxied normal album response is not modified');
- const untouchedPage=await inside.rt('pic/list/relate-v2',
-   'itemId='+untouchedNormal.itemId+'&itemType=album&page=1&pageSize=20',
-   {success:true,data:{list:[{id:901,rank:1,pictureInfo:normalPicture}]}});
- assert.equal(JSON.stringify(untouchedPage),'{}','every other normal album response is not modified');
- let insideTap=unwrap(await inside.rt('item/get','id='+insideHome.id,
-   {success:true,data:{itemData:{}}}));
- assert.equal(insideTap.itemData.itemType,'album','dedicated native route returns the virtual EXHOBBY album');
- assert.equal(insideTap.itemData.picCount,45);
+ assert.equal(detail.itemData.path,pa[0].pictureInfo.path);
+ assert.equal(JSON.stringify(await h.rt('album/detail','itemId='+albumFor(A).itemId+'&itemType=album',
+   {success:true,data:{album:albumFor(A)}})),'{}',
+   'native album detail is passed through untouched');
+ assert.equal(JSON.stringify(await h.rt('pic/list/relate-v2',
+   'itemId='+albumFor(A).itemId+'&itemType=album&page=1&pageSize=20',
+   {success:true,data:{list:[{id:901,rank:1,pictureInfo:{id:901,itemId:902,itemType:'pic',path:'normal.jpg'}}]}})),'{}',
+   'native album picture list is passed through untouched');
+ assert.equal(JSON.stringify(await h.rt('pic/list/relate-v2',
+   'itemId='+secondAlbumFor(A).itemId+'&itemType=album&page=1&pageSize=20',
+   {success:true,data:{list:[{id:903,rank:1,pictureInfo:{id:903,itemId:904,itemType:'pic',path:'normal2.jpg'}}]}})),'{}',
+   'every other native album picture list stays untouched');
 
  const count=h.calls.length;await h.load(A);assert.equal(h.calls.length,count,'A cache is reused separately');
  assert(!JSON.stringify([...h.prefs]).includes('HPOI_PRIVATE_TOKEN'));
@@ -247,7 +201,7 @@ const unwrap=r=>JSON.parse(r.body).data;
   assert(upgrade>=0&&capture>upgrade,file+' must upgrade HTTP before HTTPS session capture');
   if(file==='hpoi-exhobby.snippet'){
    const remoteScripts=rules.filter(line=>line.includes('url script-')&&line.includes('hpoi-exhobby.js'));
-   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.4.4')),
+   assert(remoteScripts.length>=3&&remoteScripts.every(line=>line.includes('hpoi-exhobby.js?v=3.5.0')),
     'remote EXHOBBY scripts must bypass the prior URL cache');
   }
   const [upgradeSource,upgradeTarget]=rules[upgrade].split(' url 307 ');
