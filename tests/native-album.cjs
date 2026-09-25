@@ -2,8 +2,8 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const script=fs.readFileSync(path.join(__dirname,'..','hpoi-exhobby.js'),'utf8');
 const pkg=JSON.parse(fs.readFileSync(path.join(__dirname,'..','package.json'),'utf8'));
-assert(script.startsWith('// Hpoi + EXHOBBY native album v3.6.1'));
-assert.equal(pkg.version,'3.6.1');
+assert(script.startsWith('// Hpoi + EXHOBBY native album v3.6.2'));
+assert.equal(pkg.version,'3.6.2');
 const NS='HPOI_EXHOBBY_NATIVE_V2:', A=13021283, B=13021284, C=13021285;
 const items={[A]:74515,[B]:74516,[C]:74517};
 const rows=Object.fromEntries([[A,45],[B,27],[C,0]].map(([id,n])=>[id,Array.from({length:n},(_,i)=>({id:600000+i,path:'2026/09/'+id+'-'+i+'.jpg'}))]));
@@ -256,6 +256,48 @@ const unwrap=r=>JSON.parse(r.body).data;
   assert.equal(pushFailed.notices.length,1,'failed Bark delivery falls back to Quantumult X');
   assert(pushFailed.notices[0][2].includes('https://www.exhobby.net/search'),'unknown galleries open the search page');
 
+ // Lazy scoped pagination: 26 EXHOBBY + 18 native rows become 20 / 20 / 4.
+ let lazy=harness();
+ lazy.prefs.set(NS+'all:'+A+':known',JSON.stringify(true));
+ lazy.prefs.set(NS+'all:'+A+':hobby',JSON.stringify({hobbyId:items[A]}));
+ lazy.prefs.set(NS+'album-owner:'+albumFor(A).itemId,JSON.stringify({
+  item:A,itemId:albumFor(A).itemId,nativeId:albumFor(A).id,time:Date.now()
+ }));
+ const lazyRows=Array.from({length:26},(_,i)=>({id:800000+i,path:'lazy/'+(i+1)+'.jpg'}));
+ lazy.prefs.set(NS+'album-gallery:'+A+':'+albumFor(A).itemId,JSON.stringify({
+  version:31,complete:true,time:Date.now(),scoped:true,
+  albumItemId:albumFor(A).itemId,rows:lazyRows
+ }));
+ lazy.prefs.set(NS+'cache-index',JSON.stringify({
+  [A]:{last:Date.now(),albums:[albumFor(A).itemId],
+   albumLast:{[albumFor(A).itemId]:Date.now()},images:[],routes:[]}
+ }));
+ const lazyNative=Array.from({length:18},(_,i)=>({
+  id:910000+i,rank:i+1,subType:7,
+  pictureInfo:{id:910000+i,itemId:920000+i,itemType:'pic',path:'lazy-native/'+(i+1)+'.jpg'}
+ }));
+ async function lazyPage(page){
+  const start=(page-1)*20;
+  return unwrap(await lazy.rt('pic/list/relate-v2',
+   'itemId='+albumFor(A).itemId+'&itemType=album&page='+page+'&pageSize=20',
+   {success:true,data:{list:lazyNative.slice(start,start+20)}})).list;
+ }
+ const lazy1=await lazyPage(1),lazy2=await lazyPage(2),lazy3=await lazyPage(3);
+ assert.equal(lazy1.length,20,'lazy page 1 is capped at 20 rows');
+ assert(lazy1.every(r=>String(r.pictureInfo.path).startsWith('/__exhobby__/')),
+  'lazy page 1 exposes only the first 20 EXHOBBY rows');
+ assert.equal(lazy2.length,20,'lazy page 2 is filled to 20 rows');
+ assert.equal(lazy2.filter(r=>String(r.pictureInfo.path).startsWith('/__exhobby__/')).length,6,
+  'lazy page 2 contains remaining 6 EXHOBBY rows');
+ assert.equal(lazy2.filter(r=>!String(r.pictureInfo.path).startsWith('/__exhobby__/')).length,14,
+  'lazy page 2 fills the rest with the first 14 native rows');
+ assert.equal(lazy3.length,4,'lazy page 3 contains the final four native rows');
+ assert(lazy3.every(r=>String(r.pictureInfo.path).startsWith('lazy-native/')),
+  'lazy page 3 continues native rows without duplication');
+ assert(lazy.logs.some(line=>line.includes('lazy scoped album')&&line.includes('page=2')&&
+  line.includes('exhobbyShown=6')&&line.includes('nativeShown=14')),
+  'lazy pagination log reports both sources on the transition page');
+
  // Seven-day cache GC: stale items and stale albums are purged independently.
  let gc=harness();
  const now=Date.now(),day=86400000,oldItem=98765432,staleAlbum=7654321,freshAlbum=7654322;
@@ -295,9 +337,9 @@ const unwrap=r=>JSON.parse(r.body).data;
   const capture=rules.findIndex(line=>line.includes('url script-response-body')&&line.includes('www\\.exhobby\\.net/picture'));
   assert(upgrade>=0&&capture>upgrade,file+' must upgrade HTTP before HTTPS session capture');
   if(file==='hpoi-exhobby.snippet'){
-   const remoteScripts=rules.filter(line=>line.includes('url script-')&&line.includes('hpoi-exhobby-v3.6.1.js'));
-   assert(remoteScripts.length>=4&&remoteScripts.every(line=>line.includes('hpoi-exhobby-v3.6.1.js')),
-    'remote EXHOBBY scripts must use the versioned v3.6.1 runtime');
+   const remoteScripts=rules.filter(line=>line.includes('url script-')&&line.includes('hpoi-exhobby-v3.6.2.js'));
+   assert(remoteScripts.length>=4&&remoteScripts.every(line=>line.includes('hpoi-exhobby-v3.6.2.js')),
+    'remote EXHOBBY scripts must use the versioned v3.6.2 runtime');
   }
   const [upgradeSource,upgradeTarget]=rules[upgrade].split(' url 307 ');
   const upgradePattern=new RegExp(upgradeSource);
