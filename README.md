@@ -2,18 +2,27 @@
 
 在 Hpoi iOS App 的手办词条相册列表中添加「EXHOBBY 相册」入口，点击后通过 Hpoi 原生相册查看图片。
 
-当前多客户端适配版：**v3.7.1**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。每个词条只新增一个独立「EXHOBBY 相册」入口；全部 EXHOBBY 图片只显示在这个专用相册中，普通 Hpoi 相册保持原样。
+当前多客户端适配版：**v3.7.2**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。每个词条只新增一个独立「EXHOBBY 相册」入口；全部 EXHOBBY 图片只显示在这个专用相册中，普通 Hpoi 相册保持原样。
 
-本适配版基于 GitHub `main` 在 2026-09-26 的提交 `359c88e`（多客户端 v3.7.0）制作。
+本适配版基于 GitHub `main` 在 2026-09-27 的提交 `29c0848`（v3.7.1）制作。
 
 | 客户端 | EXHOBBY 相册 | Hpoi 接口净化 | 第三方广告域名 |
 | --- | --- | --- | --- |
-| Quantumult X | 完整支持 | 完整支持 | 完整支持 |
-| Surge | 完整支持 | 完整支持 | 完整支持 |
-| Loon | 完整支持 | 完整支持 | 完整支持 |
+| Quantumult X | 完整支持 | 淘宝卡片清理 | 完整拒绝 |
+| Surge | 完整支持 | 淘宝卡片清理 | 完整拒绝 |
+| Loon | 完整支持 | 淘宝卡片清理 | 完整拒绝 |
 | Clash / Mihomo | 不支持 | 不支持 | 支持 |
 
-Clash/Mihomo 核心没有本项目需要的 HTTPS MITM 请求/响应 JavaScript 环境，因此只能使用随仓库提供的广告域名规则，不能注入 EXHOBBY 相册，也不能清理 Hpoi 自身接口返回的广告或淘宝卡片。
+Hpoi 官方 `/api/common/advert/list` 在 v3.7.2 中只做一项定向处理：把识别出的开屏列表收缩为一个明确的 Hpoi 官方记录，响应中的配置、时间间隔、素材参数及其他数组全部保留；第三方广告域名仍全部拒绝。Clash/Mihomo 核心没有本项目需要的 HTTPS MITM 请求/响应 JavaScript 环境，因此只能使用随仓库提供的第三方广告域名规则，不能注入 EXHOBBY 相册或清理淘宝卡片。
+
+## v3.7.2 定向保留官方开屏
+
+- 重写 QX、Surge、Loon 的开屏处理：只修改被识别为开屏列表的那一个数组，并只保留一个带 `official`／`isOfficial`、Hpoi 来源字段或 Hpoi 官方域名信号的记录。
+- v3.7.1 会递归清空响应里的其他数组；v3.7.2 不再这样做，配置、时间间隔、素材列表及父级／同级记录全部保持原样。
+- 新增固定路径 `hpoi-ad-sanitize-v3.7.2.js` 规避客户端脚本缓存；旧 `hpoi-ad-sanitize-v3.7.1.js` 改为 `$done({})`，即使旧规则残留也不会继续执行有问题的递归清理。
+- `hpoi-ads-filter.list`、Surge 模块、Loon 插件与 Clash/Mihomo 规则仍拒绝全部已收录的第三方广告域名。
+- 淘宝关联商品清理、EXHOBBY 相册、20 张懒加载和 7 天缓存回收保持不变。
+- 无法明确识别官方记录或响应结构变化时整包原样放行，第三方内容仍由域名规则拒绝；如果仍无法启动，需要依据真机请求日志定位被 Hpoi 启动流程硬依赖的第三方 SDK 接口，不能继续靠猜测放行。
 
 ## v3.7.1 保留一个官方开屏
 
@@ -243,7 +252,7 @@ Clash/Mihomo 核心没有本项目需要的 HTTPS MITM 请求/响应 JavaScript 
 
 同一台设备只启用一种客户端的本项目配置，避免同一响应被重复处理。
 
-以下远程地址指向原仓库 `main`；请先把交付包中的 v3.7.1 文件上传到该仓库根目录。发布前可先用本地文件测试，尚不存在于远端的链接不会生效。
+以下远程地址指向原仓库 `main`；请先把交付包中的 v3.7.2 文件上传到该仓库根目录。发布前可先用本地文件测试，尚不存在于远端的链接不会生效。
 
 ### Quantumult X
 
@@ -253,7 +262,7 @@ Clash/Mihomo 核心没有本项目需要的 HTTPS MITM 请求/响应 JavaScript 
 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.snippet, tag=HPOI_EXHOBBY, enabled=true
 ```
 
-保存并更新远程资源，确认资源成功加载。相册运行时使用 `hpoi-exhobby-v3.7.0.js`，开屏安全脚本使用 `hpoi-ad-sanitize-v3.7.1.js`，均通过独立物理路径避免与旧缓存混用。
+保存并更新远程资源，确认资源成功加载。相册运行时继续使用 `hpoi-exhobby-v3.7.0.js`；官方开屏脚本应为新的固定路径 `hpoi-ad-sanitize-v3.7.2.js`。
 
 如果通过圈叉的重写资源界面添加，资源地址填写上面的订阅链接。配置行用于 `[rewrite_remote]`，不要把仓库首页链接或 JS 文件链接当作重写订阅地址。
 
@@ -265,7 +274,7 @@ https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exho
 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.sgmodule
 ```
 
-启用模块、Rewrite 和 MITM，并安装且信任 Surge 证书。模块已经包含脚本、精确广告规则、淘宝接口清理、URL 跳转和三个 MITM 域名。
+启用模块、Rewrite 和 MITM，并安装且信任 Surge 证书。模块包含相册脚本、第三方广告拒绝规则、淘宝接口清理、URL 跳转和三个 MITM 域名；官方开屏接口只保留一个明确的官方记录，其他响应字段不变。
 
 ### Loon
 
@@ -275,13 +284,13 @@ https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exho
 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.plugin
 ```
 
-启用插件、脚本和 MITM，并安装且信任 Loon 证书。插件已经包含完整相册功能和广告处理规则。
+启用插件、脚本和 MITM，并安装且信任 Loon 证书。插件包含完整相册功能和第三方广告拒绝规则；官方开屏接口只保留一个明确的官方记录，其他响应字段不变。
 
 ### Clash / Mihomo
 
 把 [`hpoi-clash-example.yaml`](hpoi-clash-example.yaml) 中的 `rule-providers` 与 `rules` 合并进现有配置。它会订阅 [`hpoi-ads-clash.yaml`](hpoi-ads-clash.yaml)，并通过 `RULE-SET,hpoi-ads,REJECT` 拦截第三方广告域名。
 
-Clash/Mihomo **不能安装** `.snippet`、`.sgmodule` 或 `.plugin`，也不能实现 EXHOBBY 相册注入、Hpoi 开屏广告 JSON 清理和淘宝关联商品接口清理。
+Clash/Mihomo **不能安装** `.snippet`、`.sgmodule` 或 `.plugin`，也不能实现 EXHOBBY 相册注入、官方开屏记录筛选和淘宝关联商品接口清理。
 
 ### 共享设置：保持脚本与 MITM 开启
 
@@ -354,6 +363,8 @@ host-suffix, hpoi.net, direct
 
 ## 从旧版升级与日常更新
 
+从 v3.7.1 升级到 v3.7.2，需要同时更新客户端中的 `HPOI_EXHOBBY` 重写／模块／插件和第三方广告规则。更新后确认 `/api/common/advert/list` 使用 `hpoi-ad-sanitize-v3.7.2.js`，再彻底结束 Hpoi 冷启动。EXHOBBY 缓存和 Safari 年龄验证会话无需清除。
+
 从 v3.7.0 升级到 v3.7.1，只需上传新增的 `hpoi-ad-sanitize-v3.7.1.js` 及本版本配置文件，然后在客户端更新一次远程资源。相册、Safari 会话和缓存结构未变化，无需清缓存或重新验证年龄。
 
 从 Quantumult X v3.6.2 升级到 v3.7.0，只需更新 `HPOI_EXHOBBY` 远程资源，确认脚本路径为 `hpoi-exhobby-v3.7.0.js`。存储命名空间未改变，已有相册模板、图库缓存和仍有效的 Safari 会话可以继续使用。改用 Surge 或 Loon 时，由于各客户端本地脚本存储彼此独立，需要重新完成一次原生相册模板和 Safari 会话准备。
@@ -405,8 +416,9 @@ Quantumult X 如需使用本地文件，将 [`hpoi-exhobby.js`](hpoi-exhobby.js)
 | `README.md` | 安装、使用和排错说明 |
 | `hpoi-exhobby.js` | Quantumult X、Surge、Loon 共用主脚本 |
 | `hpoi-exhobby-v3.7.0.js` | 远程订阅使用的 v3.7.0 固定路径运行文件 |
-| `hpoi-ad-sanitize.js` | Hpoi 开屏安全脚本主文件；保留一个服务器开屏记录 |
-| `hpoi-ad-sanitize-v3.7.1.js` | 三客户端远程配置使用的固定版本开屏脚本 |
+| `hpoi-ad-sanitize.js` | 定向保留一个明确官方开屏记录的维护脚本 |
+| `hpoi-ad-sanitize-v3.7.1.js` | 兼容 v3.7.1 旧固定路径的无改写透传脚本 |
+| `hpoi-ad-sanitize-v3.7.2.js` | 三客户端远程配置使用的固定版本开屏脚本 |
 | `hpoi-empty-dict.js` | Surge 淘宝关联商品接口空字典响应脚本 |
 | `bark-setup.example.js` | 可选的一次性 Bark 本地配置模板；不要上传含个人密钥的副本 |
 | `hpoi-exhobby.snippet` | Quantumult X 远程重写订阅 |
@@ -418,7 +430,7 @@ Quantumult X 如需使用本地文件，将 [`hpoi-exhobby.js`](hpoi-exhobby.js)
 | `assets/exhobby-cover-v3.2.png` | 仅用于兼容 v3.4.1 旧缓存；v3.4.3 不再插入该封面 |
 | `package.json` | 离线检查与测试命令 |
 | `tests/native-album.cjs` | EXHOBBY 原生相册离线模拟测试 |
-| `tests/ad-sanitize.cjs` | Hpoi 开屏广告响应清理离线测试 |
+| `tests/ad-sanitize.cjs` | 单官方开屏、同级数组保留与第三方广告拒绝边界测试 |
 | `tests/platform-adapters.cjs` | 三客户端运行时与四类配置离线测试 |
 
 上传压缩包时先解压，保持目录结构。主脚本和订阅文件应在仓库根目录；封面图应在 `assets` 文件夹，测试文件应放在 **`tests` 文件夹，末尾带 s**。
@@ -475,7 +487,7 @@ GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/wor
 
 本仓库另有离线模拟测试，覆盖并发词条隔离、专用入口的真实路由、普通相册透明代理与内容隔离、无封面图片序列、分页尾页、相册与图片导航、缓存复用、中断恢复、图片 ID 冲突、验证提醒、凭据隔离，以及 HTTP 图库链接到 HTTPS 的 307 规则顺序与 URL 保真。测试不连接真实站点，不代表所有设备和站点状态均已验证。
 
-v3.7.0 额外用独立运行时夹具验证 Quantumult X、Surge、Loon 的存储、请求/响应关联、状态码、通知与 HTTP 客户端适配，并静态校验 Surge 模块、Loon 插件和 Clash/Mihomo 规则。v3.7.1 增加单开屏保留、官方记录优先、嵌套素材保持和未知结构放行测试。现有真实设备记录来自 Quantumult X；Surge 与 Loon 仍建议先在单台设备上观察日志后再长期启用。
+v3.7.0 额外用独立运行时夹具验证 Quantumult X、Surge、Loon 的存储、请求/响应关联、状态码、通知与 HTTP 客户端适配，并静态校验 Surge 模块、Loon 插件和 Clash/Mihomo 规则。v3.7.2 验证只收缩被识别的开屏数组、其他配置与素材数组完整保留、未知结构原样放行、旧 v3.7.1 路径无改写透传，同时确认四端第三方广告拒绝规则仍在。现有真实设备记录来自 Quantumult X；Surge 与 Loon 仍建议先在单台设备上观察日志后再长期启用。
 
 安装 Node.js 后在仓库根目录执行，无需安装 npm 依赖：
 
