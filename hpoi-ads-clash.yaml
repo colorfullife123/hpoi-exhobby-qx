@@ -1,0 +1,28 @@
+# HPOI third-party ad domains for Clash/Mihomo classical rule-provider.
+# This file cannot provide EXHOBBY album injection: Clash/Mihomo has no
+# HTTP MITM request/response JavaScript runtime compatible with this project.
+payload:
+  - DOMAIN-SUFFIX,adintl.cn
+  - DOMAIN,api-dsp.8ziben.com
+  - DOMAIN,bid.buluken.com
+  - DOMAIN-SUFFIX,fancyapi.com
+  - DOMAIN,wcp.taobao.com
+  - DOMAIN,qzs.gdtimg.com
+  - DOMAIN,ad.toutiao.com
+  - DOMAIN-SUFFIX,zhangyuyidong.cn
+  - DOMAIN-SUFFIX,hardcoresir.net
+  - DOMAIN,guanggao-prod.cn-shanghai.log.aliyuncs.com
+  - DOMAIN-SUFFIX,gdt.qq.com
+  - DOMAIN-SUFFIX,beizi.biz
+  - DOMAIN,sdk.e.qq.com
+  - DOMAIN-SUFFIX,66mobi.com
+  - DOMAIN-SUFFIX,litemob.net
+  - DOMAIN-SUFFIX,bayescom.com
+  - DOMAIN-SUFFIX,xdmssp.com
+  - DOMAIN-SUFFIX,adbiding.com
+  - DOMAIN-SUFFIX,pangolin-sdk-toutiao.com
+  - DOMAIN-SUFFIX,pangolin-sdk-toutiao1.com
+  - DOMAIN-SUFFIX,pangolin-sdk-toutiao-b.com
+  - DOMAIN,pangolin.snssdk.com
+  - DOMAIN-SUFFIX,pglstatp-toutiao.com
+  - DOMAIN-SUFFIX,pglstatp-snssdk-toutiao.com

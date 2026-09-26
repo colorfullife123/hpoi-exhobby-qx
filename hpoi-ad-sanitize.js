@@ -1,4 +1,4 @@
-// Hpoi startup advert sanitizer v3.3.2 — Quantumult X
+// Hpoi startup advert sanitizer v3.7.0 — Quantumult X / Surge / Loon
 // Keeps the server response envelope intact and only empties arrays.
 // Fail-open by design: malformed or unknown responses are returned unchanged.
 (function () {

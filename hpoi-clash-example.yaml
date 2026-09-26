@@ -1,0 +1,15 @@
+# Merge this fragment into an existing Clash/Mihomo profile.
+# Keep the RULE-SET line before broad MATCH/FINAL rules.
+# Only third-party ad-domain blocking is available on Clash/Mihomo.
+
+rule-providers:
+  hpoi-ads:
+    type: http
+    behavior: classical
+    format: yaml
+    url: https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-ads-clash.yaml
+    path: ./ruleset/hpoi-ads.yaml
+    interval: 86400
+
+rules:
+  - RULE-SET,hpoi-ads,REJECT

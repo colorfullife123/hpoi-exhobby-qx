@@ -1,0 +1,47 @@
+#!name=HPOI EXHOBBY
+#!desc=v3.7.0 · EXHOBBY 原生相册、HPOI 精准去广告与 7 天缓存回收（Surge）
+#!system=ios
+#!author=colorfullife123
+#!homepage=https://github.com/colorfullife123/hpoi-exhobby-qx
+
+[Rule]
+DOMAIN-SUFFIX,adintl.cn,REJECT
+DOMAIN,api-dsp.8ziben.com,REJECT
+DOMAIN,bid.buluken.com,REJECT
+DOMAIN-SUFFIX,fancyapi.com,REJECT
+DOMAIN,wcp.taobao.com,REJECT
+DOMAIN,qzs.gdtimg.com,REJECT
+DOMAIN,ad.toutiao.com,REJECT
+DOMAIN-SUFFIX,zhangyuyidong.cn,REJECT
+DOMAIN-SUFFIX,hardcoresir.net,REJECT
+DOMAIN,guanggao-prod.cn-shanghai.log.aliyuncs.com,REJECT
+DOMAIN-SUFFIX,gdt.qq.com,REJECT
+DOMAIN-SUFFIX,beizi.biz,REJECT
+DOMAIN,sdk.e.qq.com,REJECT
+DOMAIN-SUFFIX,66mobi.com,REJECT
+DOMAIN-SUFFIX,litemob.net,REJECT
+DOMAIN-SUFFIX,bayescom.com,REJECT
+DOMAIN-SUFFIX,xdmssp.com,REJECT
+DOMAIN-SUFFIX,adbiding.com,REJECT
+DOMAIN-SUFFIX,pangolin-sdk-toutiao.com,REJECT
+DOMAIN-SUFFIX,pangolin-sdk-toutiao1.com,REJECT
+DOMAIN-SUFFIX,pangolin-sdk-toutiao-b.com,REJECT
+DOMAIN,pangolin.snssdk.com,REJECT
+DOMAIN-SUFFIX,pglstatp-toutiao.com,REJECT
+DOMAIN-SUFFIX,pglstatp-snssdk-toutiao.com,REJECT
+
+[URL Rewrite]
+^http://www\.exhobby\.net/(.*) https://www.exhobby.net/$1 307
+^https://rfx\.hpoi\.net/[^?]*__exhobby__/cover-v3\.2\.png[^?]*(?:\?.*)?$ https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/assets/exhobby-cover-v3.2.png 302
+^https://rfx\.hpoi\.net/[^?]*__exhobby__/([^?]+)(?:\?.*)?$ https://res.e39x.com/pic/n/$1 302
+
+[Script]
+HPOI 启动广告净化 = type=http-response,pattern=^https://www\.hpoi\.net\.cn/api/common/advert/list(?:\?|$),requires-body=true,max-size=2097152,timeout=10,script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-ad-sanitize.js
+HPOI 淘宝关联商品清理 = type=http-request,pattern=^https://www\.hpoi\.net\.cn/api/(?:hobby/amazonPrice|goods/tb/[^?]+)(?:\?|$),timeout=5,script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-empty-dict.js
+EXHOBBY 缓存页面 = type=http-response,pattern=^https://www\.exhobby\.net/__hpoi_cache_(?:status|clear)__(?:\?.*)?$,requires-body=true,max-size=2097152,timeout=10,script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby-v3.7.0.js
+EXHOBBY 会话捕获 = type=http-response,pattern=^https://www\.exhobby\.net/picture(?:\?|/\d+(?:\?|$)),requires-body=true,max-size=2097152,timeout=15,script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby-v3.7.0.js
+HPOI EXHOBBY 请求 = type=http-request,pattern=^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$),requires-body=true,max-size=1048576,timeout=15,script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby-v3.7.0.js
+HPOI EXHOBBY 响应 = type=http-response,pattern=^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$),requires-body=true,max-size=5242880,timeout=15,script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby-v3.7.0.js
+
+[MITM]
+hostname = %APPEND% www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
