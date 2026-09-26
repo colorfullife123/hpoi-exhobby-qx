@@ -1,0 +1,27 @@
+name: Publish v3.7.2 release
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.repository == 'colorfullife123/hpoi-exhobby-qx' && github.event.head_commit.message == 'chore: publish v3.7.2 release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out release files
+        uses: actions/checkout@v4
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create v3.7.2 \
+            ".release-assets/hpoi-exhobby-multiplatform-v3.7.2.zip#hpoi-exhobby-multiplatform-v3.7.2.zip" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "ffed6154a70ee2f28b8b3a16c5f1b1ee603d4083" \
+            --title "v3.7.2 · 仅保留官方开屏并拒绝第三方广告" \
+            --notes-file ".github/release-v3.7.2.md" \
+            --latest
