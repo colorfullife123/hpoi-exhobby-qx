@@ -1,5 +1,5 @@
 #!name=HPOI EXHOBBY
-#!desc=v3.7.0 · EXHOBBY 原生相册、HPOI 精准去广告与 7 天缓存回收（Surge）
+#!desc=v3.7.1 · 保留一个官方开屏、EXHOBBY 原生相册与 7 天缓存回收（Surge）
 #!system=ios
 #!author=colorfullife123
 #!homepage=https://github.com/colorfullife123/hpoi-exhobby-qx
@@ -36,7 +36,7 @@ DOMAIN-SUFFIX,pglstatp-snssdk-toutiao.com,REJECT
 ^https://rfx\.hpoi\.net/[^?]*__exhobby__/([^?]+)(?:\?.*)?$ https://res.e39x.com/pic/n/$1 302
 
 [Script]
-HPOI 启动广告净化 = type=http-response,pattern=^https://www\.hpoi\.net\.cn/api/common/advert/list(?:\?|$),requires-body=true,max-size=2097152,timeout=10,script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-ad-sanitize.js
+HPOI 启动广告净化 = type=http-response,pattern=^https://www\.hpoi\.net\.cn/api/common/advert/list(?:\?|$),requires-body=true,max-size=2097152,timeout=10,script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-ad-sanitize-v3.7.1.js
 HPOI 淘宝关联商品清理 = type=http-request,pattern=^https://www\.hpoi\.net\.cn/api/(?:hobby/amazonPrice|goods/tb/[^?]+)(?:\?|$),timeout=5,script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-empty-dict.js
 EXHOBBY 缓存页面 = type=http-response,pattern=^https://www\.exhobby\.net/__hpoi_cache_(?:status|clear)__(?:\?.*)?$,requires-body=true,max-size=2097152,timeout=10,script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby-v3.7.0.js
 EXHOBBY 会话捕获 = type=http-response,pattern=^https://www\.exhobby\.net/picture(?:\?|/\d+(?:\?|$)),requires-body=true,max-size=2097152,timeout=15,script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby-v3.7.0.js

@@ -2,9 +2,9 @@
 
 在 Hpoi iOS App 的手办词条相册列表中添加「EXHOBBY 相册」入口，点击后通过 Hpoi 原生相册查看图片。
 
-当前多客户端适配版：**v3.7.0**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。每个词条只新增一个独立「EXHOBBY 相册」入口；全部 EXHOBBY 图片只显示在这个专用相册中，普通 Hpoi 相册保持原样。
+当前多客户端适配版：**v3.7.1**。自动识别不同手办词条，为每个条目分别保存图库和分页数据。每个词条只新增一个独立「EXHOBBY 相册」入口；全部 EXHOBBY 图片只显示在这个专用相册中，普通 Hpoi 相册保持原样。
 
-本适配版基于 GitHub `main` 在 2026-09-25 的最新提交 `73feb6a`（上游 v3.6.2）制作。
+本适配版基于 GitHub `main` 在 2026-09-26 的提交 `359c88e`（多客户端 v3.7.0）制作。
 
 | 客户端 | EXHOBBY 相册 | Hpoi 接口净化 | 第三方广告域名 |
 | --- | --- | --- | --- |
@@ -14,6 +14,14 @@
 | Clash / Mihomo | 不支持 | 不支持 | 支持 |
 
 Clash/Mihomo 核心没有本项目需要的 HTTPS MITM 请求/响应 JavaScript 环境，因此只能使用随仓库提供的广告域名规则，不能注入 EXHOBBY 相册，也不能清理 Hpoi 自身接口返回的广告或淘宝卡片。
+
+## v3.7.1 保留一个官方开屏
+
+- Hpoi 自家 `/api/common/advert/list` 不再把全部广告数组清空，而是从服务器原始响应中保留一个开屏记录，保证冷启动流程仍有合法数据可读取。
+- 优先识别 `splash`、`startup`、`launch`、`boot`、`advert` 等开屏数组；存在 Hpoi 官方域名或 `official` 标记时优先保留该记录。
+- 保留记录内的图片、素材和其他嵌套数组原样不动，其余广告数组继续清空。
+- 不伪造图片、链接或广告对象；如果后端结构无法安全识别，直接放行服务器原响应，优先保证 App 能进入。
+- Quantumult X、Surge、Loon 统一改用固定路径 `hpoi-ad-sanitize-v3.7.1.js`，避免继续命中旧脚本缓存。Clash/Mihomo 规则不变。
 
 ## v3.7.0 多客户端适配
 
@@ -235,7 +243,7 @@ Clash/Mihomo 核心没有本项目需要的 HTTPS MITM 请求/响应 JavaScript 
 
 同一台设备只启用一种客户端的本项目配置，避免同一响应被重复处理。
 
-以下远程地址指向原仓库 `main`；请先把交付包中的 v3.7.0 文件上传到该仓库根目录。发布前可先用本地文件测试，尚不存在于远端的链接不会生效。
+以下远程地址指向原仓库 `main`；请先把交付包中的 v3.7.1 文件上传到该仓库根目录。发布前可先用本地文件测试，尚不存在于远端的链接不会生效。
 
 ### Quantumult X
 
@@ -245,7 +253,7 @@ Clash/Mihomo 核心没有本项目需要的 HTTPS MITM 请求/响应 JavaScript 
 https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby.snippet, tag=HPOI_EXHOBBY, enabled=true
 ```
 
-保存并更新远程资源，确认资源成功加载。v3.7.0 使用独立物理脚本 `hpoi-exhobby-v3.7.0.js`，避免与旧脚本缓存混用。
+保存并更新远程资源，确认资源成功加载。相册运行时使用 `hpoi-exhobby-v3.7.0.js`，开屏安全脚本使用 `hpoi-ad-sanitize-v3.7.1.js`，均通过独立物理路径避免与旧缓存混用。
 
 如果通过圈叉的重写资源界面添加，资源地址填写上面的订阅链接。配置行用于 `[rewrite_remote]`，不要把仓库首页链接或 JS 文件链接当作重写订阅地址。
 
@@ -346,6 +354,8 @@ host-suffix, hpoi.net, direct
 
 ## 从旧版升级与日常更新
 
+从 v3.7.0 升级到 v3.7.1，只需上传新增的 `hpoi-ad-sanitize-v3.7.1.js` 及本版本配置文件，然后在客户端更新一次远程资源。相册、Safari 会话和缓存结构未变化，无需清缓存或重新验证年龄。
+
 从 Quantumult X v3.6.2 升级到 v3.7.0，只需更新 `HPOI_EXHOBBY` 远程资源，确认脚本路径为 `hpoi-exhobby-v3.7.0.js`。存储命名空间未改变，已有相册模板、图库缓存和仍有效的 Safari 会话可以继续使用。改用 Surge 或 Loon 时，由于各客户端本地脚本存储彼此独立，需要重新完成一次原生相册模板和 Safari 会话准备。
 
 已经使用本地 v2.3／v3.0／v3.1／v3.2 的用户，添加并成功加载远程订阅后，停用旧的本地重写即可。脚本继续使用原有存储命名空间，已保存的相册模板与仍有效的浏览器会话通常可以复用，无需主动清空数据。
@@ -395,7 +405,8 @@ Quantumult X 如需使用本地文件，将 [`hpoi-exhobby.js`](hpoi-exhobby.js)
 | `README.md` | 安装、使用和排错说明 |
 | `hpoi-exhobby.js` | Quantumult X、Surge、Loon 共用主脚本 |
 | `hpoi-exhobby-v3.7.0.js` | 远程订阅使用的 v3.7.0 固定路径运行文件 |
-| `hpoi-ad-sanitize.js` | Hpoi 开屏广告结构保持型响应清理脚本 |
+| `hpoi-ad-sanitize.js` | Hpoi 开屏安全脚本主文件；保留一个服务器开屏记录 |
+| `hpoi-ad-sanitize-v3.7.1.js` | 三客户端远程配置使用的固定版本开屏脚本 |
 | `hpoi-empty-dict.js` | Surge 淘宝关联商品接口空字典响应脚本 |
 | `bark-setup.example.js` | 可选的一次性 Bark 本地配置模板；不要上传含个人密钥的副本 |
 | `hpoi-exhobby.snippet` | Quantumult X 远程重写订阅 |
@@ -464,7 +475,7 @@ GitHub 官方说明：[移动文件](https://docs.github.com/en/repositories/wor
 
 本仓库另有离线模拟测试，覆盖并发词条隔离、专用入口的真实路由、普通相册透明代理与内容隔离、无封面图片序列、分页尾页、相册与图片导航、缓存复用、中断恢复、图片 ID 冲突、验证提醒、凭据隔离，以及 HTTP 图库链接到 HTTPS 的 307 规则顺序与 URL 保真。测试不连接真实站点，不代表所有设备和站点状态均已验证。
 
-v3.7.0 额外用独立运行时夹具验证 Quantumult X、Surge、Loon 的存储、请求/响应关联、状态码、通知与 HTTP 客户端适配，并静态校验 Surge 模块、Loon 插件和 Clash/Mihomo 规则。现有真实设备记录来自 Quantumult X；Surge 与 Loon 仍建议先在单台设备上观察日志后再长期启用。
+v3.7.0 额外用独立运行时夹具验证 Quantumult X、Surge、Loon 的存储、请求/响应关联、状态码、通知与 HTTP 客户端适配，并静态校验 Surge 模块、Loon 插件和 Clash/Mihomo 规则。v3.7.1 增加单开屏保留、官方记录优先、嵌套素材保持和未知结构放行测试。现有真实设备记录来自 Quantumult X；Surge 与 Loon 仍建议先在单台设备上观察日志后再长期启用。
 
 安装 Node.js 后在仓库根目录执行，无需安装 npm 依赖：
 

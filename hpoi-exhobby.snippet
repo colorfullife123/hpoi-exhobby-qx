@@ -1,4 +1,4 @@
-# Hpoi EXHOBBY v3.7.0 - Quantumult X remote rewrite
+# Hpoi EXHOBBY v3.7.1 - Quantumult X remote rewrite
 # Includes targeted HPOI startup-ad cleanup confirmed from captured traffic.
 # Cold-start compatibility revision: 2026-09-20.1
 # Assumes branch main and hpoi-exhobby.js at the repository root.
@@ -8,9 +8,9 @@
 hostname = www.hpoi.net.cn, rfx.hpoi.net, www.exhobby.net
 
 # HPOI startup advertising
-# Preserve the server's JSON envelope and only empty arrays inside the advert payload.
+# Preserve one server-provided startup record and clear the remaining advert arrays.
 # The sanitizer fails open if the response is malformed or its structure is unknown.
-^https://www\.hpoi\.net\.cn/api/common/advert/list(?:\?|$) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-ad-sanitize.js?v=3.3.2
+^https://www\.hpoi\.net\.cn/api/common/advert/list(?:\?|$) url script-response-body https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-ad-sanitize-v3.7.1.js
 
 # Hide Taobao-related products below item details while keeping normal item data and image CDNs untouched.
 ^https://www\.hpoi\.net\.cn/api/hobby/amazonPrice(?:\?|$) url reject-dict

@@ -1,5 +1,5 @@
 #!name=HPOI EXHOBBY
-#!desc=v3.7.0 · EXHOBBY 原生相册、HPOI 精准去广告与 7 天缓存回收（Loon）
+#!desc=v3.7.1 · 保留一个官方开屏、EXHOBBY 原生相册与 7 天缓存回收（Loon）
 #!author=colorfullife123
 #!homepage=https://github.com/colorfullife123/hpoi-exhobby-qx
 #!openUrl=https://github.com/colorfullife123/hpoi-exhobby-qx
@@ -38,7 +38,7 @@ DOMAIN-SUFFIX,pglstatp-snssdk-toutiao.com,REJECT
 ^https://rfx\.hpoi\.net/[^?]*__exhobby__/([^?]+)(?:\?.*)?$ 302 https://res.e39x.com/pic/n/$1
 
 [Script]
-http-response ^https://www\.hpoi\.net\.cn/api/common/advert/list(?:\?|$) script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-ad-sanitize.js,requires-body=true,timeout=10,tag=HPOI 启动广告净化,enable=true
+http-response ^https://www\.hpoi\.net\.cn/api/common/advert/list(?:\?|$) script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-ad-sanitize-v3.7.1.js,requires-body=true,timeout=10,tag=HPOI 启动广告净化,enable=true
 http-response ^https://www\.exhobby\.net/__hpoi_cache_(?:status|clear)__(?:\?.*)?$ script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby-v3.7.0.js,requires-body=true,timeout=10,tag=EXHOBBY 缓存页面,enable=true
 http-response ^https://www\.exhobby\.net/picture(?:\?|/\d+(?:\?|$)) script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby-v3.7.0.js,requires-body=true,timeout=15,tag=EXHOBBY 会话捕获,enable=true
 http-request ^https://www\.hpoi\.net\.cn/api/(?:item/get|hobby/album|album/detail|pic/list/relate-v2)(?:\?|$) script-path=https://raw.githubusercontent.com/colorfullife123/hpoi-exhobby-qx/main/hpoi-exhobby-v3.7.0.js,requires-body=true,timeout=15,tag=HPOI EXHOBBY 请求,enable=true

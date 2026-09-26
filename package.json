@@ -1,11 +1,11 @@
 {
   "name": "hpoi-exhobby-multiplatform",
-  "version": "3.7.0",
+  "version": "3.7.1",
   "private": true,
   "description": "EXHOBBY native album integration for Hpoi iOS through Quantumult X, Surge and Loon, with Clash/Mihomo ad rules",
   "license": "MIT",
   "scripts": {
-    "check": "node --check hpoi-exhobby.js && node --check hpoi-exhobby-v3.7.0.js && node --check hpoi-ad-sanitize.js && node --check hpoi-empty-dict.js && node --check bark-setup.example.js",
+    "check": "node --check hpoi-exhobby.js && node --check hpoi-exhobby-v3.7.0.js && node --check hpoi-ad-sanitize.js && node --check hpoi-ad-sanitize-v3.7.1.js && node --check hpoi-empty-dict.js && node --check bark-setup.example.js",
     "test": "node tests/native-album.cjs && node tests/ad-sanitize.cjs && node tests/platform-adapters.cjs"
   }
 }
